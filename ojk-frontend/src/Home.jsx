@@ -264,7 +264,7 @@ useEffect(() => {
                       <th className="p-4 sticky left-0 bg-slate-100 z-30 w-72 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] font-bold text-slate-700">
                         POS / KETERANGAN
                       </th>
-                      {laporan.columns.map((col, i) => (
+                      {/* {laporan.columns.map((col, i) => (
                         <th key={i} className="p-4 min-w-[200px] text-right border-r border-slate-200 font-bold text-slate-800 text-base">
                           <div className="mb-2">Q{col.triwulan} {col.tahun}</div>
                           <div className="flex justify-end gap-1 font-normal text-xs">
@@ -273,7 +273,7 @@ useEffect(() => {
                             <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000003`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 03</a>
                           </div>
                         </th>
-                      ))}
+                      ))} */}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -366,7 +366,7 @@ useEffect(() => {
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-amber-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
                   <h3 className="font-bold text-amber-700 flex items-center gap-2"><Activity size={18}/> 000003 - Kualitas Aset Detail (Kuartal Terakhir)</h3>
-                  <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000003`} className="text-[10px] bg-white border border-amber-200 px-3 py-1.5 rounded hover:bg-amber-100 text-amber-700 font-bold transition-colors">📥 Unduh 03</a>
+                  {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000003`} className="text-[10px] bg-white border border-amber-200 px-3 py-1.5 rounded hover:bg-amber-100 text-amber-700 font-bold transition-colors">📥 Unduh 03</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {/* Filter: Hanya tampilkan data yang BUKAN rasio/persentase */}
@@ -423,7 +423,7 @@ useEffect(() => {
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-indigo-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
                   <h3 className="font-bold text-indigo-700 flex items-center gap-2"><Users size={18}/> 000005 - Pengurus & Saham (Kuartal Terakhir)</h3>
-                  <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000005`} className="text-[10px] bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-100 text-indigo-700 font-bold transition-colors">📥 Unduh 05</a>
+                  {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000005`} className="text-[10px] bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-100 text-indigo-700 font-bold transition-colors">📥 Unduh 05</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {laporan.latest_000005.length === 0 ? (

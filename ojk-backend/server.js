@@ -191,7 +191,7 @@ app.get('/api/download/:tahun/:bulan/:id_bank/:kode_laporan',authMiddleware, (re
   const q_label = kuartalMap[bulan] || bulan;
 
   // Asumsi Path Induk: naik 1 folder dari 'ojk-backend' ke 'data_ojk'
-  const baseDataFolder = path.join(__dirname, '../data_ojk');
+  const baseDataFolder = path.join(__dirname, 'data_ojk');
 
   if (!fs.existsSync(baseDataFolder)) {
     return res.status(404).send("Folder induk arsip OJK tidak ditemukan di server.");
