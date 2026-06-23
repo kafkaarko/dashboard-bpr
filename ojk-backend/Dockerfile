@@ -1,23 +1,26 @@
-# Gunakan OS Linux versi ringan khusus Node.js
-FROM node:20-alpine
+# Gunakan OS Debian Slim (Lebih stabil untuk Prisma)
+FROM node:20-slim
 
-# Set lokasi kerja di dalam mesin cloud
+# Install OpenSSL yang wajib dibutuhkan oleh Prisma Engine
+RUN apt-get update -y && apt-get install -y openssl
+
+# Set lokasi kerja
 WORKDIR /app
 
-# Salin package.json untuk mendeteksi library yang dibutuhkan
+# Salin package.json
 COPY package*.json ./
 
-# Install semua dependencies (Express, Prisma, Cors, dll)
+# Install dependencies
 RUN npm install
 
-# Salin seluruh sisa file kamu (termasuk folder data_ojk dan prisma) ke dalam mesin
+# Salin semua sisa file
 COPY . .
 
-# Eksekusi Prisma agar mengenali struktur database Supabase-mu
+# Eksekusi Prisma
 RUN npx prisma generate
 
-# Buka jalur komunikasi di port 3001
+# Buka port
 EXPOSE 3001
 
-# Perintah untuk menyalakan server
+# Nyalakan server
 CMD ["npm", "start"]
