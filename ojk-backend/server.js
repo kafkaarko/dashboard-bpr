@@ -45,6 +45,15 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
+// Rute untuk halaman depan API
+app.get('/', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: "OJK Dashboard API is running perfectly on Vercel 🚀",
+    version: "1.0.0"
+  });
+});
+
 // --- ENDPOINT 1: AMBIL DAFTAR BANK UNIK ---
 app.get('/api/bpr-list', authMiddleware, async (req, res) => {
   try {
