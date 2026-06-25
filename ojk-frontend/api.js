@@ -10,7 +10,8 @@ export const api = async (endpoint, customOptions = {}) => {
     credentials: "include",
     ...customOptions, // <-- Ini penting untuk memasukkan method: 'POST' dan body
     headers: {
-      "Content-Type": "application/json", // <-- Wajib ada agar backend Express tahu ini data JSON
+      "Content-Type": "application/json",
+      'ngrok-skip-browser-warning': 'true', // <-- Wajib ada agar backend Express tahu ini data JSON
       ...customOptions.headers,
     },
   };
