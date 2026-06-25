@@ -264,16 +264,16 @@ useEffect(() => {
                       <th className="p-4 sticky left-0 bg-slate-100 z-30 w-72 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] font-bold text-slate-700">
                         POS / KETERANGAN
                       </th>
-                      {/* {laporan.columns.map((col, i) => (
+                      {laporan.columns.map((col, i) => (
                         <th key={i} className="p-4 min-w-[200px] text-right border-r border-slate-200 font-bold text-slate-800 text-base">
                           <div className="mb-2">Q{col.triwulan} {col.tahun}</div>
                           <div className="flex justify-end gap-1 font-normal text-xs">
-                            <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000001`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 01</a>
+                            {/* <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000001`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 01</a>
                             <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000002`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 02</a>
-                            <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000003`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 03</a>
-                          </div>
+                            <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000003`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 03</a>*/}
+                            </div> 
                         </th>
-                      ))} */}
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
