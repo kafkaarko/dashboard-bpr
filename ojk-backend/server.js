@@ -325,12 +325,9 @@ app.post('/api/login', async(req,res) => { // <-- FIX 1: Tambah garis miring (/)
 
 
 // --- KODE BARU (VERCEL READY) ---
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = process.env.PORT || 3001;
-  app.listen(PORT, () => {
-    console.log(`🚀 Backend lokal berjalan di http://localhost:${PORT}`);
-  });
-}
-
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Backend berjalan di port ${PORT}`);
+});
 // Wajib di-export agar Vercel bisa membacanya
 module.exports = app;
