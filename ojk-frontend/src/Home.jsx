@@ -63,7 +63,7 @@ useEffect(() => {
     .then(result => { 
       // console.log("Respon dari server:", result); // Menggeser console.log ke sini agar tidak error
       if(result.status === 401){
-        localStorage.clear('auth_token')
+        localStorage.removeItem('auth_token')
         navigate('/login')
         throw new Error("sesi login habis silah kan coba lagi")
       }
