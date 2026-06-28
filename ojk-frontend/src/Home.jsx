@@ -9,7 +9,7 @@ import {
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {jwtDecode} from 'jwt-decode'
 import { api } from '../api';
 
@@ -42,7 +42,7 @@ export default function Home() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState("");
 
-
+  const navigate = useNavigate()
 
   // Contoh perubahan fetch di useEffect lu bor:
 useEffect(() => {
@@ -61,8 +61,12 @@ useEffect(() => {
     }
   })
     .then(result => { 
-      console.log("Respon dari server:", result); // Menggeser console.log ke sini agar tidak error
-      
+      // console.log("Respon dari server:", result); // Menggeser console.log ke sini agar tidak error
+      if(result.status === 401){
+        localStorage.clear('auth_token')
+        navigate('/login')
+        throw new Error("sesi login habis silah kan coba lagi")
+      }
       if (result.success) {
         setDaftarBank(result.data); 
       }
