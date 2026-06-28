@@ -46,34 +46,34 @@ export default function Home() {
 
   // Contoh perubahan fetch di useEffect lu bor:
 useEffect(() => {
-  // 1. Ambil token dari localStorage (Pastikan key-nya sama saat kamu menaruhnya pas login)
   const token = localStorage.getItem('auth_token'); 
 
-  // HAPUS jwtDecode(token) karena token kamu bukan JWT!
-
-  // 2. Lakukan fetch ke backend
   api('/api/bpr-list', {
     method: 'GET',
     headers: {
-      // Ini sudah benar, backend kamu akan membaca ini di `req.headers.authorization`
       'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
     }
   })
     .then(result => { 
-      // console.log("Respon dari server:", result); // Menggeser console.log ke sini agar tidak error
-      if(result.status === 401){
-        localStorage.removeItem('auth_token')
-        navigate('/login')
-        throw new Error("sesi login habis silah kan coba lagi")
-      }
+      // Kalau lolos masuk sini, berarti status 200 OK
       if (result.success) {
         setDaftarBank(result.data); 
       }
     })
-    .catch(err => console.error("Gagal ambil data akibat proteksi:", err));
-}, []);
-
+    .catch(err => {
+      console.error("Gagal ambil data akibat proteksi:", err);
+      
+        // Kita cek apakah pesan error-nya mengandung angka "401"
+      if (err.message && err.message.includes('401')) {
+        // 1. Hapus token spesifik
+        localStorage.removeItem('auth_token'); 
+        
+        // 2. Tendang balik ke halaman login
+        navigate('/login'); 
+      }
+    });
+}, [navigate]); // Tambahkan navigate di dependency array biar React gak protes
   useEffect(() => {
     const token = localStorage.getItem("auth_token")
     if (!selectedBankId) return;
