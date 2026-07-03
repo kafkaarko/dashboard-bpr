@@ -87,10 +87,10 @@ const tabMenu = [
   // FIX ACTION: JANGAN pakai helper api() untuk unduh biner file. Gunakan native window.fetch murni!
   const handleDownloadExcel = async () => {
   const token = localStorage.getItem('auth_token');
-  
+  const baseUrl = import.meta.env.VITE_API_URL
   try {
     // KOREKSI: Tembak langsung ke port server backend lu (3001)
-    const response = await window.fetch(`http://localhost:3001/api/export/excel/${selectedBank}`, {
+    const response = await window.fetch(`${baseUrl}/api/export/excel/${selectedBank}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
