@@ -4,13 +4,19 @@ import {
   ArrowRight, Users, Activity, Wallet, TrendingUp, Percent,
   Database,
   GitCompareIcon,
-  GitCompareArrowsIcon
+  GitCompareArrowsIcon,
+  ReceiptPoundSterling,
+  Monitor,
+  LayoutDashboard,
+  ChevronDown,
+  HelpCircle,
+  X
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
 } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
-import {jwtDecode} from 'jwt-decode'
+import { jwtDecode } from 'jwt-decode'
 import { api } from '../api';
 
 const formatRupiah = (angka) => {
@@ -41,50 +47,52 @@ export default function Home() {
   const [filteredBanks, setFilteredBanks] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const navigate = useNavigate()
 
   // Contoh perubahan fetch di useEffect lu bor:
-useEffect(() => {
-  const token = localStorage.getItem('auth_token'); 
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token');
 
-  api('/api/bpr-list', {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    }
-  })
-    .then(result => { 
-      // Kalau lolos masuk sini, berarti status 200 OK
-      if (result.success) {
-        setDaftarBank(result.data); 
+    api('/api/bpr-list', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
       }
     })
-    .catch(err => {
-      console.error("Gagal ambil data akibat proteksi:", err);
-      
+      .then(result => {
+        // Kalau lolos masuk sini, berarti status 200 OK
+        if (result.success) {
+          setDaftarBank(result.data);
+        }
+      })
+      .catch(err => {
+        console.error("Gagal ambil data akibat proteksi:", err);
+
         // Kita cek apakah pesan error-nya mengandung angka "401"
-      if (err.message && err.message.includes('401')) {
-        // 1. Hapus token spesifik
-        localStorage.removeItem('auth_token'); 
-        
-        // 2. Tendang balik ke halaman login
-        navigate('/login'); 
-      }
-    });
-}, [navigate]); // Tambahkan navigate di dependency array biar React gak protes
+        if (err.message && err.message.includes('401')) {
+          // 1. Hapus token spesifik
+          localStorage.removeItem('auth_token');
+
+          // 2. Tendang balik ke halaman login
+          navigate('/login');
+        }
+      });
+  }, [navigate]); // Tambahkan navigate di dependency array biar React gak protes
   useEffect(() => {
     const token = localStorage.getItem("auth_token")
     if (!selectedBankId) return;
     setLoading(true);
-    api(`/api/bpr/${selectedBankId}`,{
-      method:'GET',
+    api(`/api/bpr/${selectedBankId}`, {
+      method: 'GET',
       headers: {
-      // WAJIB ADA: Format harus 'Bearer <token>' sesuai ekspektasi backend-mu
-      'Authorization': `Bearer ${token}`, 
-      'Content-Type': 'application/json'
-    }
+        // WAJIB ADA: Format harus 'Bearer <token>' sesuai ekspektasi backend-mu
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     })
 
       .then(result => {
@@ -93,6 +101,21 @@ useEffect(() => {
         setLoading(false);
       })
   }, [selectedBankId]);
+  useEffect(() => {
+    const hasSeenTour = localStorage.getItem('has_seen_v2_features');
+    if (!hasSeenTour) {
+      setShowTutorial(true); 
+    }
+  }, []);
+
+  const handleCloseTutorial = () => {
+    localStorage.setItem('has_seen_v2_features', 'true');
+    setShowTutorial(false);
+  };
+
+  const handleTriggerTutorial = () => {
+    setShowTutorial(true);
+  };
 
   const handleSearchChange = (e) => {
     const value = e.target.value;
@@ -138,55 +161,156 @@ useEffect(() => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
+      
       {/* FIXED NAVBAR */}
-      <header className="bg-white border-b border-slate-200 z-50 shadow-sm shrink-0 sticky top-0">
-        <div className="px-6 py-4 flex justify-between items-center gap-4 max-w-[1400px] mx-auto w-full">
-          
-          <div className="flex items-center gap-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <Building2 className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
-                <Link to={"/"}>Bank<span className="text-blue-600">BPR</span></Link>
-              </h1>
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Unified Executive Panel</p>
+        {showTutorial && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full mx-4 relative">
+              <button 
+                onClick={handleCloseTutorial}
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X size={18} />
+              </button>
+              
+              <div className="flex items-center gap-2 mb-3">
+                <span className="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider">
+                  Update Fitur v2
+                </span>
+              </div>
+              
+              <h3 className="text-base font-black text-slate-800 mb-2">
+                🔥 Dua Fitur Baru Telah Tersedia!
+              </h3>
+              <p className="text-slate-600 text-xs leading-relaxed mb-4">
+                Halo! Tim internal sekarang bisa menikmati dua modul analisis terbaru untuk mempermudah monitoring berkas OJK:
+              </p>
+
+              <div className="space-y-3 mb-5">
+                <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="bg-blue-600 text-white p-2 rounded-lg h-fit">
+                    <ReceiptPoundSterling size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">1. Modul Laporan Akuntansi</h4>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Visualisasi matriks Neraca, Laba Rugi, & Kontinjensi menyamping ke kanan berdasar kuartal periode mirip Excel.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
+                    <Monitor size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800">2. Modul Monitoring Terpadu</h4>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Pantau grafik pertumbuhan rasio keuangan utama BPR secara dinamis untuk presentasi eksekutif.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleCloseTutorial}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-blue-100"
+              >
+                Siap, Saya Paham!
+              </button>
             </div>
           </div>
+        )}
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        
+        {/* ========================================================= */}
+        {/* MODAL TUTORIAL (OVERLAY LIGHTBOX) */}
+        {/* ========================================================= */}
 
-          <div className="flex items-center gap-4 w-full justify-end">
+        {/* ========================================================= */}
+        {/* HEADER BAR UTAMA */}
+        {/* ========================================================= */}
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4">
             
-            <Link 
-              to="/tracker" 
-              className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100"
-            >
-              <Database size={18} />
-              <span className="hidden sm:inline">Data Tracker</span>
-            </Link>
-             <Link 
-              to="/compare" 
-              className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100"
-            >
-              <GitCompareArrowsIcon size={18} />
-              <span className="hidden sm:inline">Compare Data</span>
-            </Link>
+            {/* KIRI: LOGO & JUDUL */}
+            <div className="flex items-center justify-center md:justify-start w-full md:w-auto gap-3">
+              <div className="bg-blue-600 p-2.5 rounded-xl shadow-sm shadow-blue-200">
+                <Building2 className="text-white" size={24} />
+              </div>
+              <div>
+                <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">
+                  <Link to={"/"}>Bank<span className="text-blue-600">BPR</span></Link>
+                </h1>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
+                  Unified Executive Panel
+                </p>
+              </div>
+            </div>
 
-            <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
-              <input
-                type="text" placeholder="Cari BPR (Nama / ID)..."
-                value={searchTerm} onChange={handleSearchChange} onFocus={() => { if (searchTerm.length > 0) setShowDropdown(true) }}
-                className="w-full pl-10 pr-3 py-2 border border-slate-300 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
-              />
-              {showDropdown && (
-                <ul className="absolute z-50 mt-1 w-full bg-white shadow-xl max-h-60 rounded-xl overflow-auto border border-slate-100">
-                  {filteredBanks.map(bank => (
-                    <li key={bank.id_bank} onClick={() => handleSelectBank(bank)} className="cursor-pointer p-3 hover:bg-blue-50 border-b border-slate-50">
-                      <span className="font-bold">{bank.id_bank}</span> - <span className="text-sm">{bank.nama_bank}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            {/* KANAN: MENU & SEARCH */}
+            <div className="flex items-center justify-center md:justify-end gap-3 w-full md:w-auto">
+              
+              {/* WRAPPER MENU */}
+              <div className="relative flex items-center gap-1">
+                <button
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100 focus:outline-none"
+                >
+                  <LayoutDashboard size={18} />
+                  <span className="hidden sm:inline">Menu Fitur</span>
+                  <ChevronDown size={16} className={`transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* TOMBOL TRIGGER TUTORIAL KECIL */}
+                <button
+                  onClick={handleTriggerTutorial}
+                  title="Lihat info fitur baru"
+                  className="p-1 text-slate-400 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 rounded-lg transition-colors flex items-center justify-center"
+                  style={{ width: '22px', height: '22px' }}
+                >
+                  <HelpCircle size={12} />
+                </button>
+
+                {/* ISI DROPDOWN FITUR */}
+                {isMenuOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white shadow-xl rounded-xl border border-slate-100 overflow-hidden z-50 flex flex-col">
+                    <Link to="/tracker" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors border-b border-slate-50">
+                      <Database size={16} /> Data Tracker
+                    </Link>
+                    <Link to="/compare" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors border-b border-slate-50">
+                      <GitCompareArrowsIcon size={16} /> Compare Data
+                    </Link>
+                    <Link to="/laporan" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors border-b border-slate-50">
+                      <span className="flex items-center gap-3"><ReceiptPoundSterling size={16} /> Laporan</span>
+                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+                    </Link>
+                    <Link to="/monitor" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <span className="flex items-center gap-3"><Monitor size={16} /> Monitoring</span>
+                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* SEARCH BAR */}
+              <div className="relative w-full md:w-64 z-[40]">
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
+                <input
+                  type="text" 
+                  placeholder="Cari BPR (Nama / ID)..."
+                  value={searchTerm} 
+                  onChange={handleSearchChange} 
+                  onFocus={() => { if (searchTerm.length > 0) setShowDropdown(true) }}
+                  className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
+                />
+                {showDropdown && (
+                  <ul className="absolute z-50 mt-1 w-full bg-white shadow-xl max-h-60 rounded-xl overflow-auto border border-slate-100">
+                    {filteredBanks.map(bank => (
+                      <li key={bank.id_bank} onClick={() => handleSelectBank(bank)} className="cursor-pointer p-3 hover:bg-blue-50 border-b border-slate-50">
+                        <span className="font-bold">{bank.id_bank}</span> - <span className="text-sm">{bank.nama_bank}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
             </div>
           </div>
         </div>
@@ -275,7 +399,7 @@ useEffect(() => {
                             {/* <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000001`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 01</a>
                             <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000002`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 02</a>
                             <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000003`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 03</a>*/}
-                            </div> 
+                          </div>
                         </th>
                       ))}
                     </tr>
@@ -343,7 +467,7 @@ useEffect(() => {
                             </td>
                             {laporan.columns.map((col, i) => {
                               const cellData = col.val_000003?.[label];
-                      
+
                               return (
                                 <td key={`val3rasio-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
                                   <div className="text-slate-800 font-mono font-semibold">{formatPersen(cellData?.nilai)}</div>
@@ -365,20 +489,20 @@ useEffect(() => {
                 AREA 3 (BAWAH): KUALITAS ASET & PENGURUS (STACK VERTIKAL)
                ========================================== */}
             <div className="flex flex-col gap-8 pb-10">
-              
+
               {/* --- 000003 KUALITAS ASET (FULL WIDTH DENGAN 6 KOLOM KOLEKTIBILITAS) --- */}
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-amber-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
-                  <h3 className="font-bold text-amber-700 flex items-center gap-2"><Activity size={18}/> 000003 - Kualitas Aset Detail (Kuartal Terakhir)</h3>
+                  <h3 className="font-bold text-amber-700 flex items-center gap-2"><Activity size={18} /> 000003 - Kualitas Aset Detail (Kuartal Terakhir)</h3>
                   {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000003`} className="text-[10px] bg-white border border-amber-200 px-3 py-1.5 rounded hover:bg-amber-100 text-amber-700 font-bold transition-colors">📥 Unduh 03</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {/* Filter: Hanya tampilkan data yang BUKAN rasio/persentase */}
-                  {laporan.latest_000003.filter(item => !(item.label_bersih||item.label_asli).match(/rasio|kpmm|npl|roa|bopo|nim|ldr|cash ratio/i)).length === 0 ? (
-                    <EmptyStateChart title="Kualitas Aset" /> 
+                  {laporan.latest_000003.filter(item => !(item.label_bersih || item.label_asli).match(/rasio|kpmm|npl|roa|bopo|nim|ldr|cash ratio/i)).length === 0 ? (
+                    <EmptyStateChart title="Kualitas Aset" />
                   ) : (
                     <table className="w-full text-sm text-left whitespace-nowrap">
-                      
+
                       {/* HEADER 6 KOLOM KOLEKTIBILITAS */}
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
@@ -397,41 +521,41 @@ useEffect(() => {
 
                       <tbody className="divide-y divide-slate-100">
                         {laporan.latest_000003
-                          .filter(item => !(item.label_bersih||item.label_asli).match(/rasio|kpmm|npl|roa|bopo|nim|ldr|cash ratio/i))
+                          .filter(item => !(item.label_bersih || item.label_asli).match(/rasio|kpmm|npl|roa|bopo|nim|ldr|cash ratio/i))
                           .map((item, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            
-                            <td className="p-4 font-medium text-slate-700 border-r border-slate-100">{item.label_asli}</td>
-                            
-                            {/* RENDER 6 ANGKA DARI DATABASE */}
-                            <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_L)}</td>
-                            <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_DPK)}</td>
-                            <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_KL)}</td>
-                            <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_D)}</td>
-                            <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_M)}</td>
-                            
-                            {/* KOLOM JUMLAH BERWARNA LEBIH TEGAS */}
-                            <td className="p-3 text-right font-mono font-bold text-slate-800 bg-amber-50/20">
-                              {formatRupiah(item.nilai)}
-                            </td>
-                            
-                          </tr>
-                        ))}
+                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+
+                              <td className="p-4 font-medium text-slate-700 border-r border-slate-100">{item.label_asli}</td>
+
+                              {/* RENDER 6 ANGKA DARI DATABASE */}
+                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_L)}</td>
+                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_DPK)}</td>
+                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_KL)}</td>
+                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_D)}</td>
+                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_M)}</td>
+
+                              {/* KOLOM JUMLAH BERWARNA LEBIH TEGAS */}
+                              <td className="p-3 text-right font-mono font-bold text-slate-800 bg-amber-50/20">
+                                {formatRupiah(item.nilai)}
+                              </td>
+
+                            </tr>
+                          ))}
                       </tbody>
                     </table>
                   )}
                 </div>
               </div>
-              
+
               {/* --- 000005 INFORMASI PENGURUS (FULL WIDTH DI BAWAHNYA) --- */}
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-indigo-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
-                  <h3 className="font-bold text-indigo-700 flex items-center gap-2"><Users size={18}/> 000005 - Pengurus & Saham (Kuartal Terakhir)</h3>
+                  <h3 className="font-bold text-indigo-700 flex items-center gap-2"><Users size={18} /> 000005 - Pengurus & Saham (Kuartal Terakhir)</h3>
                   {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000005`} className="text-[10px] bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-100 text-indigo-700 font-bold transition-colors">📥 Unduh 05</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {laporan.latest_000005.length === 0 ? (
-                    <EmptyStateChart title="Informasi Lainnya" /> 
+                    <EmptyStateChart title="Informasi Lainnya" />
                   ) : (
                     <table className="w-full text-sm text-left whitespace-nowrap">
                       <thead className="bg-slate-50 border-b border-slate-200">
@@ -445,7 +569,7 @@ useEffect(() => {
                         {laporan.latest_000005.map((row, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 transition-colors">
                             {Object.values(row).map((val, i) => (
-                              <td key={i} className="p-4 text-slate-700 font-medium">{val||"-"}</td>
+                              <td key={i} className="p-4 text-slate-700 font-medium">{val || "-"}</td>
                             ))}
                           </tr>
                         ))}

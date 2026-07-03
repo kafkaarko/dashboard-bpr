@@ -7,11 +7,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+//cuman local doang nanti kalo udah prod ubah lagi jadi trus jangan lupa npx prisma generate sebelum ke prod nanti ubah trus prisma generate lagi
+// datasource db {
+//   provider = "mysql"
+//   url      = env("DATABASE_URL")
+// }
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
 model laporan_keuangan_bpr {
   id_bank       String
   nama_bank     String

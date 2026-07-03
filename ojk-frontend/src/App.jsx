@@ -5,6 +5,8 @@ import RekapTracker from './RekapTracker';
 import CompareBPR from './CompareBPR';
 import Login from './Login';
 import ProtectedRoute from './ProtectedRoute';
+import LaporanInternalDetail from './Laporan';
+import Monitoring from './Monitoring';
 
 const App = () => {
   return (
@@ -17,6 +19,8 @@ const App = () => {
         <Route path="/" element={<Home />} />
         <Route path="/tracker" element={<RekapTracker />} />
         <Route path="/compare" element={<CompareBPR />} />
+        <Route path="/laporan" element={<LaporanInternalDetail />} />
+        <Route path="/monitor" element={<Monitoring />} />
       </Route>
     </Routes>
   );
