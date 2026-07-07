@@ -255,8 +255,8 @@ const tabMenu = [
             </Link>
             <button
               onClick={handleDownloadExcel}
-              // disabled={!bankData}
-              disabled
+              disabled={!bankData}
+              // disabled
               className="flex items-center gap-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed transition-colors px-4 py-2.5 rounded-xl shadow-sm"
             >
               <Download size={18} />

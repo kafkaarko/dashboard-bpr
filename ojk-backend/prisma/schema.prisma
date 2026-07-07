@@ -8,14 +8,14 @@ generator client {
 }
 
 // cuman local doang nanti kalo udah prod ubah lagi jadi trus jangan lupa npx prisma generate sebelum ke prod nanti ubah trus prisma generate lagi
-datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
-}
 // datasource db {
-//   provider = "postgresql"
+//   provider = "mysql"
 //   url      = env("DATABASE_URL")
 // }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 model laporan_keuangan_bpr {
   id_bank       String
   nama_bank     String
@@ -33,4 +33,16 @@ model user{
   password String
   createdAt DateTime @default(now())
   token String?
+}
+
+
+model broadcast_ringkasan {
+  id            Int      @id @default(autoincrement())
+  tanggal       DateTime @default(now())
+  periode_label String
+  jumlah_bank   Int
+  jumlah_alert  Int
+  konten        String   @db.Text
+
+  @@map("broadcast_ringkasan")
 }

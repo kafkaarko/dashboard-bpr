@@ -1,8 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const ExcelJS = require('exceljs');
-const fs = require('fs');       // Modul bawaan Node.js untuk baca folder
-const path = require('path');   // Modul bawaan Node.js untuk susun rute file
+
 
 
 // --- ENDPOINT 1: AMBIL DAFTAR BANK UNIK ---
@@ -145,59 +144,58 @@ const path = require('path');   // Modul bawaan Node.js untuk susun rute file
   }
 };
 
-// // --- ENDPOINT 3 (BARU): DOWNLOAD FILE EXCEL ASLI ---
-// // --- ENDPOINT 3 (BARU & DINAMIS): DOWNLOAD FILE EXCEL ASLI ---
-//  const DownloadExcelFromFile = (req, res) => {
+// --- ENDPOINT 3 (BARU): DOWNLOAD FILE EXCEL ASLI ---
+// --- ENDPOINT 3 (BARU & DINAMIS): DOWNLOAD FILE EXCEL ASLI ---
+ const DownloadExcelFromFile = (req, res) => {
+  const { tahun, bulan, id_bank, kode_laporan } = req.params;
 
-//   const { tahun, bulan, id_bank, kode_laporan } = req.params;
+  // 1. Konversi bulan menjadi format "Q" sesuai script Python terbarumu (3 -> Q1, 6 -> Q2)
+  const kuartalMap = { "3": "1", "6": "2", "9": "3", "12": "4" };
+  const q_label = kuartalMap[bulan] || bulan;
 
-//   // 1. Konversi bulan menjadi format "Q" sesuai script Python terbarumu (3 -> Q1, 6 -> Q2)
-//   const kuartalMap = { "3": "1", "6": "2", "9": "3", "12": "4" };
-//   const q_label = kuartalMap[bulan] || bulan;
+  // Asumsi Path Induk: naik 1 folder dari 'ojk-backend' ke 'data_ojk'
+  const baseDataFolder = path.join(__dirname, 'data_ojk');
 
-//   // Asumsi Path Induk: naik 1 folder dari 'ojk-backend' ke 'data_ojk'
-//   const baseDataFolder = path.join(__dirname, 'data_ojk');
+  if (!fs.existsSync(baseDataFolder)) {
+    return res.status(404).send("Folder induk arsip OJK tidak ditemukan di server.");
+  }
 
-//   if (!fs.existsSync(baseDataFolder)) {
-//     return res.status(404).send("Folder induk arsip OJK tidak ditemukan di server.");
-//   }
+  // 2. Baca seluruh sub-folder kota yang ada di dalam 'data_ojk'
+  // (Ini akan mengumpulkan array seperti: ['Kab Bogor', 'Wil Kota Jakarta Barat', ...])
+  const cityFolders = fs.readdirSync(baseDataFolder, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name);
 
-//   // 2. Baca seluruh sub-folder kota yang ada di dalam 'data_ojk'
-//   // (Ini akan mengumpulkan array seperti: ['Kab Bogor', 'Wil Kota Jakarta Barat', ...])
-//   const cityFolders = fs.readdirSync(baseDataFolder, { withFileTypes: true })
-//     .filter(dirent => dirent.isDirectory())
-//     .map(dirent => dirent.name);
+  let foundFilePath = null;
 
-//   let foundFilePath = null;
-
-//   // 3. RADAR PENCARI: Menyisir folder kota satu per satu
-//   for (const city of cityFolders) {
-//     // Susun jalur folder spesifik: data_ojk/{Nama Kota}/{Tahun}/Q{Bulan}
-//     const targetFolder = path.join(baseDataFolder, city, tahun, `Q${q_label}`);
+  // 3. RADAR PENCARI: Menyisir folder kota satu per satu
+  for (const city of cityFolders) {
+    // Susun jalur folder spesifik: data_ojk/{Nama Kota}/{Tahun}/Q{Bulan}
+    const targetFolder = path.join(baseDataFolder, city, tahun, `Q${q_label}`);
     
-//     // Jika folder untuk kuartal tersebut eksis di kota ini, intip isinya
-//     if (fs.existsSync(targetFolder)) {
-//       const files = fs.readdirSync(targetFolder);
+    // Jika folder untuk kuartal tersebut eksis di kota ini, intip isinya
+    if (fs.existsSync(targetFolder)) {
+      const files = fs.readdirSync(targetFolder);
       
-//       // Cari file yang ID Bank dan Kode Laporannya cocok
-//       const targetFile = files.find(f => f.includes(`_${id_bank}_`) && f.includes(kode_laporan));
+      // Cari file yang ID Bank dan Kode Laporannya cocok
+      const targetFile = files.find(f => f.includes(`_${id_bank}_`) && f.includes(kode_laporan));
       
-//       // Jika file ketemu, simpan jalurnya dan hentikan radar pencarian
-//       if (targetFile) {
-//         foundFilePath = path.join(targetFolder, targetFile);
-//         break; 
-//       }
-//     }
-//   }
+      // Jika file ketemu, simpan jalurnya dan hentikan radar pencarian
+      if (targetFile) {
+        foundFilePath = path.join(targetFolder, targetFile);
+        break; 
+      }
+    }
+  }
 
-//   // 4. Eksekusi pengiriman file
-//   if (foundFilePath) {
-//     // Meminta browser untuk langsung mengunduh file
-//     res.download(foundFilePath); 
-//   } else {
-//     res.status(404).send("Dokumen Excel asli tidak ditemukan di seluruh arsip wilayah.");
-//   }
-// };
+  // 4. Eksekusi pengiriman file
+  if (foundFilePath) {
+    // Meminta browser untuk langsung mengunduh file
+    res.download(foundFilePath); 
+  } else {
+    res.status(404).send("Dokumen Excel asli tidak ditemukan di seluruh arsip wilayah.");
+  }
+};
 
 // --- ENDPOINT 4 (BARU): REKAPITULASI HASIL SCRAPING ---
  const scaraping = async (req, res) => {
@@ -436,7 +434,7 @@ const path = require('path');   // Modul bawaan Node.js untuk susun rute file
     );
  
     await workbook.xlsx.write(res);
-    
+    res.end();
  
   } catch (error) {
     console.error("Gagal export excel:", error);
@@ -446,15 +444,15 @@ const path = require('path');   // Modul bawaan Node.js untuk susun rute file
 
 
 // ================================================================
-// FITUR BARU 1: ALERT & THRESHOLD WARNING (STANDAR OJK UNTUK BPR)
+// FITUR BARU 1: ALERT & THRESHOLD WARNING
 // ================================================================
-// Referensi Angka:
-// 1. KPMM: POJK No. 5/POJK.03/2015 (Minimal 12% untuk BPR)
-// 2. NPL: Standar baku OJK (Maksimal 5%)
-// 3. BOPO: Standar TKS BPR (Maksimal 94%)
-// 4. ROA: Standar TKS BPR (Minimal 1.225% untuk predikat "Sehat")
-// 5. Cash Ratio: Standar TKS Likuiditas BPR (Minimal 4.05%)
-// 6. LDR: Standar batas atas likuiditas kredit BPR (94.75%)
+//
+// PENTING: Angka threshold di bawah ini CONTOH/PLACEHOLDER yang umum
+// dipakai sebagai rule-of-thumb kesehatan bank, BUKAN kutipan resmi
+// ketentuan OJK yang berlaku saat ini. Sebelum dipakai untuk keputusan
+// nyata, cocokkan dulu angkanya ke ketentuan/kebijakan internal timmu.
+// Taruh semua rule di satu array ini biar gampang diubah tanpa
+// bongkar logika lain.
 // ================================================================
 
 const ALERT_RULES = [
@@ -462,9 +460,9 @@ const ALERT_RULES = [
     kode: 'KPMM',
     keyword: /kpmm/i,
     op: '<',
-    threshold: 12,
+    threshold: 8,
     severity: 'high',
-    pesan: (v) => `KPMM ${v.toFixed(2)}% — di bawah ambang batas minimum OJK untuk BPR (12%)`,
+    pesan: (v) => `KPMM ${v.toFixed(2)}% — di bawah ambang batas minimum yang diasumsikan (8%)`,
   },
   {
     kode: 'NPL',
@@ -472,7 +470,7 @@ const ALERT_RULES = [
     op: '>',
     threshold: 5,
     severity: 'high',
-    pesan: (v) => `NPL ${v.toFixed(2)}% — melebihi batas wajar OJK (maksimal 5%)`,
+    pesan: (v) => `NPL ${v.toFixed(2)}% — melebihi batas wajar yang diasumsikan (5%)`,
   },
   {
     kode: 'BOPO',
@@ -480,33 +478,34 @@ const ALERT_RULES = [
     op: '>',
     threshold: 94,
     severity: 'medium',
-    pesan: (v) => `BOPO ${v.toFixed(2)}% — melebihi batas maksimal efisiensi operasional (94%)`,
+    pesan: (v) => `BOPO ${v.toFixed(2)}% — mendekati/melebihi batas efisiensi yang diasumsikan (94%)`,
   },
   {
     kode: 'ROA',
     keyword: /roa/i,
     op: '<',
-    threshold: 1.225,
+    threshold: 0,
     severity: 'medium',
-    pesan: (v) => `ROA ${v.toFixed(2)}% — di bawah standar "Sehat" OJK (1.225%)${v < 0 ? ', indikasi bank merugi' : ''}`,
+    pesan: (v) => `ROA ${v.toFixed(2)}% — negatif, indikasi bank sedang merugi`,
   },
   {
     kode: 'CASH_RATIO',
     keyword: /cash ratio/i,
     op: '<',
     threshold: 4.05,
-    severity: 'high',
-    pesan: (v) => `Cash Ratio ${v.toFixed(2)}% — di bawah standar minimum likuiditas tunai BPR (4.05%)`,
+    severity: 'medium',
+    pesan: (v) => `Cash Ratio ${v.toFixed(2)}% — di bawah minimum likuiditas yang diasumsikan (4.05%)`,
   },
   {
     kode: 'LDR',
     keyword: /ldr/i,
     op: '>',
-    threshold: 94.75,
+    threshold: 94,
     severity: 'low',
-    pesan: (v) => `LDR ${v.toFixed(2)}% — melebihi batas toleransi likuiditas kredit (94.75%)`,
+    pesan: (v) => `LDR ${v.toFixed(2)}% — melebihi batas ideal yang diasumsikan (94%)`,
   },
 ];
+
 // Cek satu nilai terhadap satu rule
 const cekRule = (rule, nilai) => {
   if (nilai === null || nilai === undefined || Number.isNaN(Number(nilai))) return false;
@@ -721,13 +720,357 @@ const getSubmissionTracker = async (req, res) => {
 };
 
 
+// ================================================================
+// FITUR BARU 3: RINGKASAN EKSEKUTIF OTOMATIS (AI)
+// ================================================================
+// Dipanggil dari Home.jsx tiap user buka 1 bank. AI cuma diberi angka
+// yang sudah kita hitung sendiri (aset, laba, rasio, alert) — TIDAK
+// diminta menghitung ulang atau menebak angka baru, supaya hasilnya
+// tetap akurat dan bisa dipertanggungjawabkan.
+//
+// Provider: OpenRouter (openrouter.ai) — dipakai juga oleh fitur
+// Broadcast Ringkasan Harian di bawah, biar satu konfigurasi aja.
+//
+// WAJIB: set environment variable OPENROUTER_API_KEY di server.
+// JANGAN PERNAH taruh API key ini di kode frontend/React.
+// ================================================================
+
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+// Pakai model gratisan pilihan lu dari OpenRouter
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'poolside/laguna-xs-2.1:free';
+// Dipakai OpenRouter buat identifikasi app (opsional tapi disarankan mereka)
+const APP_URL = process.env.APP_URL || 'http://localhost:5174';
+
+// Helper generik buat manggil OpenRouter chat completions.
+// Dipakai baik oleh getAiSummary (per-bank) maupun generateBroadcastRingkasan (semua bank).
+const callOpenRouter = async (prompt, { maxTokens = 500, temperature = 0.6 } = {}) => {
+  if (!OPENROUTER_API_KEY) {
+    throw new Error('OPENROUTER_API_KEY belum diset di environment server.');
+  }
+
+  const aiResponse = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
+      // Optional Headers untuk OpenRouter
+      'HTTP-Referer': APP_URL,
+      'X-Title': 'BPR Executive Panel',
+    },
+    body: JSON.stringify({
+      model: OPENROUTER_MODEL,
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: maxTokens,
+      temperature,
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    const errText = await aiResponse.text();
+    console.error("OpenRouter API error:", aiResponse.status, errText);
+    throw new Error(`OpenRouter API error: ${aiResponse.status}`);
+  }
+
+  const aiData = await aiResponse.json();
+  return (aiData.choices?.[0]?.message?.content || '').trim();
+};
+
+const cariNilaiLabel = (arr, matchFn) => {
+  if (!Array.isArray(arr)) return null;
+  const item = arr.find((x) => matchFn(x.label_bersih || x.label_asli || ""));
+  if (!item) return null;
+  return item.nilai ?? item.tahun_berjalan ?? item.kolom_L ?? null;
+};
+
+const buildRingkasanPrompt = ({ nama_bank, periode_label, asetTerbaru, labaTerbaru, rasioKunci, alerts }) => {
+  const daftarRasio = rasioKunci.length > 0
+    ? rasioKunci.map((r) => `- ${r.label}: ${r.nilai}`).join('\n')
+    : '- Data rasio tidak tersedia';
+
+  const daftarAlert = alerts.length > 0
+    ? alerts.map((a) => `- ${a.pesan}`).join('\n')
+    : '- Tidak ada indikator yang menembus ambang batas saat ini.';
+
+  return `Kamu adalah asisten analis untuk tim monitoring internal bank BPR di Indonesia.
+Buat RINGKASAN EKSEKUTIF singkat (3-5 kalimat, satu paragraf, tanpa bullet point) dalam Bahasa Indonesia berdasarkan data di bawah.
+
+ATURAN PENTING:
+- Gunakan HANYA angka yang diberikan di bawah ini. JANGAN mengarang atau menghitung ulang angka apa pun.
+- Kalau data rasio atau alert kosong, tidak perlu dibahas panjang, cukup sebutkan kondisinya normal.
+- Gaya bahasa profesional, netral, dan actionable untuk pembaca internal (bukan untuk nasabah/publik).
+
+Nama Bank: ${nama_bank}
+Periode Laporan: ${periode_label}
+Total Aset: ${asetTerbaru !== null ? `Rp ${Number(asetTerbaru).toLocaleString('id-ID')}` : 'tidak tersedia'}
+Laba/Rugi Tahun Berjalan: ${labaTerbaru !== null ? `Rp ${Number(labaTerbaru).toLocaleString('id-ID')}` : 'tidak tersedia'}
+
+Rasio Kunci:
+${daftarRasio}
+
+Indikator Alert Aktif:
+${daftarAlert}`;
+};
+
+const getAiSummary = async (req, res) => {
+  const { id_bank } = req.params;
+
+  try {
+    const latestRecord = await prisma.laporan_keuangan_bpr.findFirst({
+      where: { id_bank },
+      orderBy: [{ periode_tahun: 'desc' }, { periode_bulan: 'desc' }],
+    });
+
+    if (!latestRecord) {
+      return res.status(404).json({ success: false, error: 'Data bank tidak ditemukan' });
+    }
+
+    const dk = latestRecord.data_keuangan || {};
+    const alerts = evaluateAlerts(dk); // reuse dari fitur Alert & Threshold
+
+    const asetTerbaru = cariNilaiLabel(dk["000001"], (l) => l.toLowerCase() === 'total aset');
+    const labaTerbaru = cariNilaiLabel(dk["000002"], (l) => l.toLowerCase().includes('jumlah laba (rugi) tahun berjalan'));
+
+    const rasioKunci = (dk["000003"] || [])
+      .filter((item) => ALERT_RULES.some((r) => r.keyword.test(item.label_bersih || item.label_asli || "")))
+      .map((item) => ({
+        label: item.label_bersih || item.label_asli,
+        nilai: item.tahun_berjalan ?? item.nilai ?? item.kolom_L ?? '-',
+      }));
+
+    const periode_label = `Q${latestRecord.periode_bulan / 3} ${latestRecord.periode_tahun}`;
+
+    const prompt = buildRingkasanPrompt({
+      nama_bank: latestRecord.nama_bank,
+      periode_label,
+      asetTerbaru,
+      labaTerbaru,
+      rasioKunci,
+      alerts,
+    });
+
+    let ringkasan;
+    try {
+      ringkasan = await callOpenRouter(prompt, { maxTokens: 1000, temperature: 0.6 });
+    } catch (err) {
+      console.error("Gagal memanggil OpenRouter:", err.message);
+      return res.status(502).json({ success: false, error: 'Gagal menghubungi layanan AI' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id_bank: latestRecord.id_bank,
+        nama_bank: latestRecord.nama_bank,
+        periode_label,
+        ringkasan,
+        jumlah_alert: alerts.length,
+      },
+    });
+  } catch (error) {
+    console.error("Gagal membuat ringkasan AI:", error);
+    res.status(500).json({ success: false, error: 'Gagal membuat ringkasan AI' });
+  }
+};
+
+
+// ================================================================
+// FITUR BARU 4: BROADCAST RINGKASAN HARIAN (AI, terjadwal)
+// ================================================================
+// Beda dengan getAiSummary (yang per-bank, on-demand), fitur ini
+// merangkum SEMUA bank yang kena alert jadi SATU ringkasan harian,
+// disimpan ke tabel `broadcast_ringkasan`, dan ditampilkan sebagai
+// feed di halaman "Broadcast" pada frontend.
+//
+// Dipanggil oleh cron job (lihat scheduler.js) tiap hari, TAPI juga
+// bisa dipanggil manual lewat endpoint POST /api/broadcast/generate
+// (berguna buat testing tanpa nunggu jadwal cron).
+// ================================================================
+
+const buildBroadcastPrompt = (bankBermasalah) => {
+  const daftarBank = bankBermasalah
+    .map((b) => {
+      const daftarAlert = b.alerts.map((a) => `  - ${a.pesan}`).join('\n');
+      return `${b.nama_bank} (${b.id_bank}) — periode ${b.periode_label}:\n${daftarAlert}`;
+    })
+    .join('\n\n');
+
+  return `Kamu adalah asisten analis untuk tim monitoring internal bank BPR di Indonesia.
+Buat RINGKASAN BROADCAST HARIAN (5-8 kalimat, dalam bentuk paragraf, TANPA bullet list, TANPA markdown) yang merangkum kondisi bank-bank yang sedang menembus ambang batas peringatan.
+
+ATURAN PENTING:
+- Gunakan HANYA data di bawah ini. JANGAN mengarang angka atau nama bank baru.
+- Prioritaskan bank dengan alert paling kritis/severity tinggi di awal paragraf.
+- Kalau jumlah bank banyak, boleh dikelompokkan per jenis masalah (misal "beberapa bank tercatat KPMM di bawah batas...").
+- Gaya bahasa profesional dan ringkas, untuk dibaca cepat oleh tim internal di pagi hari.
+
+Data Bank Bermasalah Hari Ini:
+${daftarBank}`;
+};
+
+// Fungsi inti — dipakai baik oleh cron maupun endpoint manual
+const generateBroadcastRingkasan = async () => {
+  const semua = await prisma.laporan_keuangan_bpr.findMany({
+    orderBy: [{ periode_tahun: 'desc' }, { periode_bulan: 'desc' }],
+  });
+
+  const latestPerBank = new Map();
+  semua.forEach((row) => {
+    if (!latestPerBank.has(row.id_bank)) latestPerBank.set(row.id_bank, row);
+  });
+
+  const bankBermasalah = [];
+  latestPerBank.forEach((row) => {
+    const alerts = evaluateAlerts(row.data_keuangan);
+    if (alerts.length > 0) {
+      bankBermasalah.push({
+        id_bank: row.id_bank,
+        nama_bank: row.nama_bank,
+        periode_label: `Q${row.periode_bulan / 3} ${row.periode_tahun}`,
+        alerts,
+      });
+    }
+  });
+
+  bankBermasalah.sort(
+    (a, b) => severityRank[severityTertinggi(a.alerts)] - severityRank[severityTertinggi(b.alerts)]
+  );
+
+  let konten;
+  if (bankBermasalah.length === 0) {
+    konten = "Tidak ada bank yang menembus ambang batas peringatan pada pengecekan hari ini. Kondisi seluruh BPR yang dipantau tergolong normal.";
+  } else {
+    // Batasi ke 30 bank paling kritis biar prompt gak kepanjangan / boros token
+    const prompt = buildBroadcastPrompt(bankBermasalah.slice(0, 30));
+    try {
+      konten = await callOpenRouter(prompt, { maxTokens: 1000, temperature: 0.5 });
+      if (!konten) konten = "Ringkasan tidak tersedia (respons AI kosong).";
+    } catch (err) {
+      console.error("Gagal membuat broadcast via OpenRouter:", err.message);
+      konten = "Gagal membuat ringkasan otomatis hari ini (layanan AI bermasalah). Silakan cek halaman Monitoring/Watchlist secara manual.";
+    }
+  }
+
+  const periodeLabelTerbaru = bankBermasalah[0]?.periode_label || '-';
+  const totalAlert = bankBermasalah.reduce((sum, b) => sum + b.alerts.length, 0);
+
+  const broadcastBaru = await prisma.broadcast_ringkasan.create({
+    data: {
+      periode_label: periodeLabelTerbaru,
+      jumlah_bank: bankBermasalah.length,
+      jumlah_alert: totalAlert,
+      konten,
+    },
+  });
+
+  return broadcastBaru;
+};
+
+// --- ENDPOINT: LIST BROADCAST (feed, terbaru dulu) ---
+const getBroadcastList = async (req, res) => {
+  try {
+    const daftar = await prisma.broadcast_ringkasan.findMany({
+      orderBy: { tanggal: 'desc' },
+      take: 30, // batasi 30 broadcast terakhir biar ringan
+    });
+    res.json({ success: true, data: daftar });
+  } catch (error) {
+    console.error("Gagal mengambil daftar broadcast:", error);
+    res.status(500).json({ success: false, error: 'Gagal mengambil daftar broadcast' });
+  }
+};
+
+// --- ENDPOINT: TRIGGER MANUAL (buat testing tanpa nunggu cron) ---
+const triggerBroadcastManual = async (req, res) => {
+  try {
+    const broadcastBaru = await generateBroadcastRingkasan();
+    res.json({ success: true, data: broadcastBaru });
+  } catch (error) {
+    console.error("Gagal generate broadcast manual:", error);
+    res.status(500).json({ success: false, error: 'Gagal membuat broadcast' });
+  }
+};
+
+
+// ================================================================
+// FITUR BARU 5: SCREENER NASIONAL
+// ================================================================
+// Tabel semua bank (bukan cuma yang kena alert) beserta metrik kunci
+// periode terbaru masing-masing. Difilter/disortir di FRONTEND
+// (client-side) karena jumlah BPR nasional masih dalam skala ribuan,
+// bukan jutaan — cukup 1x fetch di awal buka halaman.
+// ================================================================
+
+const getScreenerNasional = async (req, res) => {
+  try {
+    const semua = await prisma.laporan_keuangan_bpr.findMany({
+      orderBy: [{ periode_tahun: 'desc' }, { periode_bulan: 'desc' }],
+    });
+
+    const latestPerBank = new Map();
+    semua.forEach((row) => {
+      if (!latestPerBank.has(row.id_bank)) {
+        latestPerBank.set(row.id_bank, row);
+      }
+    });
+
+    const hasil = [];
+    latestPerBank.forEach((row) => {
+      const dk = row.data_keuangan || {};
+      const alerts = evaluateAlerts(dk);
+
+      const asetTerbaru = cariNilaiLabel(dk["000001"], (l) => l.toLowerCase() === 'total aset');
+      const labaTerbaru = cariNilaiLabel(dk["000002"], (l) => l.toLowerCase().includes('jumlah laba (rugi) tahun berjalan'));
+
+      // Kumpulkan rasio kunci per kode rule (KPMM, NPL, ROA, BOPO, CASH_RATIO, LDR)
+      const rasioMap = {};
+      (dk["000003"] || []).forEach((item) => {
+        const label = item.label_bersih || item.label_asli || "";
+        const rule = ALERT_RULES.find((r) => r.keyword.test(label));
+        if (rule) {
+          const nilai = item.tahun_berjalan ?? item.nilai ?? item.kolom_L ?? null;
+          rasioMap[rule.kode] = nilai !== null && nilai !== undefined ? Number(nilai) : null;
+        }
+      });
+
+      hasil.push({
+        id_bank: row.id_bank,
+        nama_bank: row.nama_bank,
+        periode_label: `Q${row.periode_bulan / 3} ${row.periode_tahun}`,
+        aset: asetTerbaru,
+        laba: labaTerbaru,
+        kpmm: rasioMap.KPMM ?? null,
+        npl: rasioMap.NPL ?? null,
+        roa: rasioMap.ROA ?? null,
+        bopo: rasioMap.BOPO ?? null,
+        cash_ratio: rasioMap.CASH_RATIO ?? null,
+        ldr: rasioMap.LDR ?? null,
+        jumlah_alert: alerts.length,
+      });
+    });
+
+    // Default urutan: aset terbesar dulu (bisa disortir ulang di frontend)
+    hasil.sort((a, b) => (b.aset || 0) - (a.aset || 0));
+
+    res.json({ success: true, data: hasil });
+  } catch (error) {
+    console.error("Gagal mengambil data screener:", error);
+    res.status(500).json({ success: false, error: 'Gagal mengambil data screener nasional' });
+  }
+};
+
+
 module.exports  = {
   getUniqueBank,
   getMatrixAndCalculate,
   downloadExcel,
-//   DownloadExcelFromFile,
+  DownloadExcelFromFile,
   scaraping,
   getAlertsForBank,
   getAlertsSummary,
   getSubmissionTracker,
+  getAiSummary,
+  generateBroadcastRingkasan,
+  getBroadcastList,
+  triggerBroadcastManual,
+  getScreenerNasional,
 }

@@ -7,6 +7,8 @@ import Login from './Login';
 import ProtectedRoute from './ProtectedRoute';
 import LaporanInternalDetail from './Laporan';
 import Monitoring from './Monitoring';
+import Broadcast from './Broadcast';
+import Screener from './Screener';
 
 const App = () => {
   return (
@@ -21,6 +23,8 @@ const App = () => {
         <Route path="/compare" element={<CompareBPR />} />
         <Route path="/laporan" element={<LaporanInternalDetail />} />
         <Route path="/monitor" element={<Monitoring />} />
+        <Route path="/broadcast" element={<Broadcast />} />
+        <Route path="/screener" element={<Screener />} />
       </Route>
     </Routes>
   );

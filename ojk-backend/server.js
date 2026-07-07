@@ -15,11 +15,20 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+
 app.use('/api',authRoute)
 app.use('/api',bprRoute)
 // --- KODE BARU (VERCEL READY) ---
+const frontendBuildPath = path.join(__dirname, '../ojk-frontend/dist');
+app.use(express.static(frontendBuildPath));
+
+app.get('/*splat', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next(); // Lepaskan jika itu panggian API
+  res.sendFile(path.join(frontendBuildPath, 'index.html'));
+});
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, () => {
   console.log(`🚀 Backend berjalan di port ${PORT}`);
 });
 // Wajib di-export agar Vercel bisa membacanya

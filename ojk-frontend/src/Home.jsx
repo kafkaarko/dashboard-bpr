@@ -10,7 +10,12 @@ import {
   LayoutDashboard,
   ChevronDown,
   HelpCircle,
-  X
+  X,
+  Sparkles,
+  RefreshCw,
+  RocketIcon,
+  AlarmPlus,
+  ScreenShare
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
@@ -49,6 +54,11 @@ export default function Home() {
   const [selectedBankId, setSelectedBankId] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+
+  // --- STATE UNTUK RINGKASAN AI ---
+  const [aiSummary, setAiSummary] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [aiError, setAiError] = useState(null);
 
   const navigate = useNavigate()
 
@@ -101,10 +111,74 @@ export default function Home() {
         setLoading(false);
       })
   }, [selectedBankId]);
+
+  // --- FETCH RINGKASAN AI setiap kali bank yang dipilih berganti ---
+  useEffect(() => {
+    if (!selectedBankId) {
+      setAiSummary(null);
+      setAiError(null);
+      return;
+    }
+
+    const token = localStorage.getItem("auth_token");
+    setLoadingAi(true);
+    setAiError(null);
+    setAiSummary(null);
+
+    api(`/api/ai-summary/${selectedBankId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(result => {
+        if (result.success && result.data) {
+          setAiSummary(result.data);
+        } else {
+          setAiError("Ringkasan AI tidak tersedia untuk bank ini.");
+        }
+        setLoadingAi(false);
+      })
+      .catch(err => {
+        console.error("Gagal ambil ringkasan AI:", err);
+        setAiError("Gagal membuat ringkasan AI. Coba lagi sebentar.");
+        setLoadingAi(false);
+        if (err.message && err.message.includes('401')) {
+          localStorage.removeItem('auth_token');
+          navigate('/login');
+        }
+      });
+  }, [selectedBankId, navigate]);
+
+  const handleRegenerateAi = () => {
+    if (!selectedBankId) return;
+    const token = localStorage.getItem("auth_token");
+    setLoadingAi(true);
+    setAiError(null);
+
+    api(`/api/ai-summary/${selectedBankId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(result => {
+        if (result.success && result.data) setAiSummary(result.data);
+        else setAiError("Ringkasan AI tidak tersedia untuk bank ini.");
+        setLoadingAi(false);
+      })
+      .catch(() => {
+        setAiError("Gagal membuat ringkasan AI. Coba lagi sebentar.");
+        setLoadingAi(false);
+      });
+  };
+
   useEffect(() => {
     const hasSeenTour = localStorage.getItem('has_seen_v2_features');
     if (!hasSeenTour) {
-      setShowTutorial(true); 
+      setShowTutorial(true);
     }
   }, []);
 
@@ -161,64 +235,74 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
-      
+
       {/* FIXED NAVBAR */}
-        {showTutorial && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-            <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full mx-4 relative">
-              <button 
-                onClick={handleCloseTutorial}
-                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <X size={18} />
-              </button>
-              
-              <div className="flex items-center gap-2 mb-3">
-                <span className="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider">
-                  Update Fitur v2
-                </span>
-              </div>
-              
-              <h3 className="text-base font-black text-slate-800 mb-2">
-                🔥 Dua Fitur Baru Telah Tersedia!
-              </h3>
-              <p className="text-slate-600 text-xs leading-relaxed mb-4">
-                Halo! Tim internal sekarang bisa menikmati dua modul analisis terbaru untuk mempermudah monitoring berkas OJK:
-              </p>
+      {showTutorial && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full mx-4 relative">
+            <button
+              onClick={handleCloseTutorial}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={18} />
+            </button>
 
-              <div className="space-y-3 mb-5">
-                <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <div className="bg-blue-600 text-white p-2 rounded-lg h-fit">
-                    <ReceiptPoundSterling size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">1. Modul Laporan Akuntansi</h4>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Visualisasi matriks Neraca, Laba Rugi, & Kontinjensi menyamping ke kanan berdasar kuartal periode mirip Excel.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                  <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
-                    <Monitor size={16} />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-800">2. Modul Monitoring Terpadu</h4>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Pantau grafik pertumbuhan rasio keuangan utama BPR secara dinamis untuk presentasi eksekutif.</p>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleCloseTutorial}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-blue-100"
-              >
-                Siap, Saya Paham!
-              </button>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="bg-blue-100 text-blue-600 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider">
+                Update Fitur v2.1
+              </span>
             </div>
+
+            <h3 className="text-base font-black text-slate-800 mb-2">
+              🔥 Tiga Fitur Baru Telah Tersedia!
+            </h3>
+            <p className="text-slate-600 text-xs leading-relaxed mb-4">
+              Halo! Tim internal sekarang bisa menikmati beberapa modul analisis terbaru untuk mempermudah monitoring berkas OJK:
+            </p>
+
+            <div className="space-y-3 mb-5">
+              <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="bg-blue-600 text-white p-2 rounded-lg h-fit">
+                  <ReceiptPoundSterling size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">1. Boardcast</h4>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Laporan semua bank yang terkena alert tanpa harus membuka satu satu</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
+                  <Monitor size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">2. Screener</h4>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Menampilkan semua bank yang NPL di atas lebih dari 5%.</p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
+                  <RocketIcon size={16} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800">3. Ringkasan AI</h4>
+                  <p className="text-slate-500 text-[11px] mt-0.5">pada Financial Executive Summary sekarang telah menghadirkan fitur ringkasan ai yang memudahkan untuk pengambilan keputusan.</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleCloseTutorial}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-md shadow-blue-100"
+            >
+              Siap, Saya Paham!
+            </button>
           </div>
-        )}
+        </div>
+      )}
       <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
-        
+
         {/* ========================================================= */}
         {/* MODAL TUTORIAL (OVERLAY LIGHTBOX) */}
         {/* ========================================================= */}
@@ -228,7 +312,7 @@ export default function Home() {
         {/* ========================================================= */}
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4">
-            
+
             {/* KIRI: LOGO & JUDUL */}
             <div className="flex items-center justify-center md:justify-start w-full md:w-auto gap-3">
               <div className="bg-blue-600 p-2.5 rounded-xl shadow-sm shadow-blue-200">
@@ -246,7 +330,7 @@ export default function Home() {
 
             {/* KANAN: MENU & SEARCH */}
             <div className="flex items-center justify-center md:justify-end gap-3 w-full md:w-auto">
-              
+
               {/* WRAPPER MENU */}
               <div className="relative flex items-center gap-1">
                 <button
@@ -279,10 +363,18 @@ export default function Home() {
                     </Link>
                     <Link to="/laporan" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors border-b border-slate-50">
                       <span className="flex items-center gap-3"><ReceiptPoundSterling size={16} /> Laporan</span>
-                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+                      {/* <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span> */}
                     </Link>
                     <Link to="/monitor" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
                       <span className="flex items-center gap-3"><Monitor size={16} /> Monitoring</span>
+                      {/* <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span> */}
+                    </Link>
+                    <Link to="/broadcast" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <span className="flex items-center gap-3"><AlarmPlus size={16} /> BroadCast</span>
+                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+                    </Link>
+                    <Link to="/screener" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                      <span className="flex items-center gap-3"><ScreenShare size={16} /> Screener</span>
                       <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
                     </Link>
                   </div>
@@ -293,10 +385,10 @@ export default function Home() {
               <div className="relative w-full md:w-64 z-[40]">
                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-slate-400" />
                 <input
-                  type="text" 
+                  type="text"
                   placeholder="Cari BPR (Nama / ID)..."
-                  value={searchTerm} 
-                  onChange={handleSearchChange} 
+                  value={searchTerm}
+                  onChange={handleSearchChange}
                   onFocus={() => { if (searchTerm.length > 0) setShowDropdown(true) }}
                   className="w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm text-sm"
                 />
@@ -340,6 +432,59 @@ export default function Home() {
             <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
               <h2 className="text-2xl font-bold text-slate-800">{laporan.nama_bank}</h2>
               <p className="text-slate-500 text-sm">Arsip Historis Komparatif Makro & Mikro</p>
+            </div>
+
+            {/* ==========================================
+                RINGKASAN AI - muncul otomatis tiap buka 1 bank
+               ========================================== */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-5 flex items-start gap-4">
+                <div className="bg-gradient-to-br from-blue-500 to-indigo-600 p-2.5 rounded-xl shrink-0">
+                  <Sparkles className="text-white" size={20} />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                      Ringkasan AI
+                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+
+                      {aiSummary?.jumlah_alert > 0 && (
+                        <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-100">
+                          {aiSummary.jumlah_alert} Alert
+                        </span>
+                      )}
+                    </h3>
+                    <button
+                      onClick={handleRegenerateAi}
+                      disabled={loadingAi}
+                      className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors disabled:opacity-40 shrink-0"
+                    >
+                      <RefreshCw size={13} className={loadingAi ? 'animate-spin' : ''} />
+                      <span className="hidden sm:inline">Buat Ulang</span>
+                    </button>
+                  </div>
+
+                  {loadingAi ? (
+                    <div className="flex flex-col gap-2 py-1">
+                      <div className="h-3 bg-slate-100 rounded-full animate-pulse w-full" />
+                      <div className="h-3 bg-slate-100 rounded-full animate-pulse w-11/12" />
+                      <div className="h-3 bg-slate-100 rounded-full animate-pulse w-3/4" />
+                    </div>
+                  ) : aiError ? (
+                    <p className="text-sm text-rose-500">{aiError}</p>
+                  ) : aiSummary?.ringkasan ? (
+                    <>
+                      <p className="text-sm text-slate-600 leading-relaxed">{aiSummary.ringkasan}</p>
+                      <p className="text-[10px] text-slate-400 mt-2">
+                        Dihasilkan otomatis oleh AI berdasarkan data periode {aiSummary.periode_label} — tetap verifikasi angka penting secara manual.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-slate-400">Ringkasan belum tersedia.</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* ==========================================
@@ -396,9 +541,6 @@ export default function Home() {
                         <th key={i} className="p-4 min-w-[200px] text-right border-r border-slate-200 font-bold text-slate-800 text-base">
                           <div className="mb-2">Q{col.triwulan} {col.tahun}</div>
                           <div className="flex justify-end gap-1 font-normal text-xs">
-                            {/* <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000001`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 01</a>
-                            <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000002`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 02</a>
-                            <a href={`${api}/api/download/${col.tahun}/${col.bulan}/${laporan.id_bank}/BPK-901-000003`} className="bg-white border border-slate-300 px-2 py-1 rounded hover:bg-blue-50 text-slate-500">📥 03</a>*/}
                           </div>
                         </th>
                       ))}
@@ -494,7 +636,6 @@ export default function Home() {
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-amber-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
                   <h3 className="font-bold text-amber-700 flex items-center gap-2"><Activity size={18} /> 000003 - Kualitas Aset Detail (Kuartal Terakhir)</h3>
-                  {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000003`} className="text-[10px] bg-white border border-amber-200 px-3 py-1.5 rounded hover:bg-amber-100 text-amber-700 font-bold transition-colors">📥 Unduh 03</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {/* Filter: Hanya tampilkan data yang BUKAN rasio/persentase */}
@@ -551,7 +692,6 @@ export default function Home() {
               <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
                 <div className="bg-indigo-50 border-b border-slate-200 p-4 sticky top-0 z-10 flex justify-between items-center">
                   <h3 className="font-bold text-indigo-700 flex items-center gap-2"><Users size={18} /> 000005 - Pengurus & Saham (Kuartal Terakhir)</h3>
-                  {/* <a href={`${api}/api/download/${laporan.latest_year}/${laporan.latest_bulan}/${laporan.id_bank}/BPK-901-000005`} className="text-[10px] bg-white border border-indigo-200 px-3 py-1.5 rounded hover:bg-indigo-100 text-indigo-700 font-bold transition-colors">📥 Unduh 05</a> */}
                 </div>
                 <div className="overflow-x-auto p-0">
                   {laporan.latest_000005.length === 0 ? (
