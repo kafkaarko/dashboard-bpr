@@ -736,6 +736,9 @@ const getSubmissionTracker = async (req, res) => {
 // ================================================================
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+console.log("DEBUG cwd:", process.cwd());
+console.log("DEBUG PWD env:", process.env.PWD);
+console.log("DEBUG OPENROUTER_API_KEY loaded:", OPENROUTER_API_KEY ? `ADA (panjang: ${OPENROUTER_API_KEY.length})` : "TIDAK ADA / KOSONG");
 // Pakai model gratisan pilihan lu dari OpenRouter
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'poolside/laguna-xs-2.1:free';
 // Dipakai OpenRouter buat identifikasi app (opsional tapi disarankan mereka)
