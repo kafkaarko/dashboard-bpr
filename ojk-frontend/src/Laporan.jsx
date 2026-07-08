@@ -16,12 +16,12 @@ export default function LaporanInternalDetail() {
   const [bankSearchTerm, setBankSearchTerm] = useState("");
   const [isBankDropdownOpen, setIsBankDropdownOpen] = useState(false);
   const bankDropdownRef = useRef(null);
-  
+
   // STATE UNTUK UI TAB & PENCARIAN
   const [activeTab, setActiveTab] = useState("000001");
   const [searchTerm, setSearchTerm] = useState("");
 
-const tabMenu = [
+  const tabMenu = [
     { id: "000001", title: "Neraca" },
     { id: "000002", title: "Laba Rugi" },
     { id: "000003", title: "Rasio" },
@@ -39,22 +39,22 @@ const tabMenu = [
 
   // 1. FETCH LIST BPR UNTUK DROPDOWN
   useEffect(() => {
-    const token = localStorage.getItem('auth_token'); 
+    const token = localStorage.getItem('auth_token');
     api('/api/bpr-list', {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     })
-      .then(result => { 
+      .then(result => {
         if (result.success) {
-          setDaftarBank(result.data); 
+          setDaftarBank(result.data);
           if (result.data.length > 0) setSelectedBank(result.data[0].id_bank);
         }
       })
       .catch(err => {
         console.error("Gagal ambil daftar bank:", err);
         if (err.message && err.message.includes('401')) {
-          localStorage.removeItem('auth_token'); 
-          navigate('/login'); 
+          localStorage.removeItem('auth_token');
+          navigate('/login');
         }
       });
   }, [navigate]);
@@ -62,65 +62,65 @@ const tabMenu = [
   // 2. FETCH HISTORIS DETAIL KEUANGAN BPR
   useEffect(() => {
     if (!selectedBank) return;
-    const token = localStorage.getItem('auth_token'); 
+    const token = localStorage.getItem('auth_token');
 
     api(`/api/bpr/${selectedBank}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` }
     })
-      .then(result => { 
+      .then(result => {
         if (result.success) {
           // Susun kolom dari periode terlama ke terbaru (kiri ke kanan) mirip Excel asli
           const reversedColumns = [...result.data.columns].reverse();
-          setBankData({ ...result.data, columns: reversedColumns }); 
+          setBankData({ ...result.data, columns: reversedColumns });
         }
       })
       .catch(err => {
         console.error("Gagal ambil detail bank:", err);
         if (err.message && err.message.includes('401')) {
-          localStorage.removeItem('auth_token'); 
-          navigate('/login'); 
+          localStorage.removeItem('auth_token');
+          navigate('/login');
         }
       });
   }, [selectedBank, navigate]);
 
   // FIX ACTION: JANGAN pakai helper api() untuk unduh biner file. Gunakan native window.fetch murni!
   const handleDownloadExcel = async () => {
-  const token = localStorage.getItem('auth_token');
-  const baseUrl = import.meta.env.VITE_API_URL
-  try {
-    // KOREKSI: Tembak langsung ke port server backend lu (3001)
-    const response = await window.fetch(`${baseUrl}/api/export/excel/${selectedBank}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
+    const token = localStorage.getItem('auth_token');
+    const baseUrl = import.meta.env.VITE_API_URL
+    try {
+      // KOREKSI: Tembak langsung ke port server backend lu (3001)
+      const response = await window.fetch(`${baseUrl}/api/export/excel/${selectedBank}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        // Jika server ngasih error (404/500), baca pesan errornya
+        const errText = await response.text();
+        console.error("Error dari server:", errText);
+        throw new Error("Gagal mengambil file Excel dari server.");
       }
-    });
 
-    if (!response.ok) {
-      // Jika server ngasih error (404/500), baca pesan errornya
-      const errText = await response.text();
-      console.error("Error dari server:", errText);
-      throw new Error("Gagal mengambil file Excel dari server.");
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `Laporan_Internal_${selectedBank}_${bankData?.nama_bank || 'BPR'}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+
+      link.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+
+    } catch (error) {
+      console.error("Download Error:", error);
+      alert("Gagal mengunduh file Excel karena masalah pembacaan biner data.");
     }
-
-    const blob = await response.blob();
-    const downloadUrl = window.URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = `Laporan_Internal_${selectedBank}_${bankData?.nama_bank || 'BPR'}.xlsx`;
-    document.body.appendChild(link);
-    link.click();
-    
-    link.remove();
-    window.URL.revokeObjectURL(downloadUrl);
-    
-  } catch (error) {
-    console.error("Download Error:", error);
-    alert("Gagal mengunduh file Excel karena masalah pembacaan biner data.");
-  }
-};
+  };
 
   // FORMAT PERIODE AGAR 1:1 SAMA SEPERTI EXCEL (Contoh: Q1 2025 -> Mar-25)
   const formatPeriodeExcel = (triwulan, tahun) => {
@@ -135,7 +135,7 @@ const tabMenu = [
     if (activeTab === "000001") return bankData.labels_000001 || [];
     if (activeTab === "000002") return bankData.labels_000002 || [];
     if (activeTab === "000003") return [...(bankData.labels_000003_nominal || []), ...(bankData.labels_000003_rasio || [])];
-   // --- FIX ACTION: Ambil dari latest_000004 (Data Terakhir) agar tidak looping 5x ---
+    // --- FIX ACTION: Ambil dari latest_000004 (Data Terakhir) agar tidak looping 5x ---
     if (activeTab === "000004") {
       return bankData.latest_000004.map(x => x.label_bersih || x.label_asli).filter(Boolean);
     }
@@ -143,7 +143,7 @@ const tabMenu = [
   };
 
   const labels = getLabelsForActiveTab();
-  const filteredLabels = labels.filter(label => 
+  const filteredLabels = labels.filter(label =>
     label && label.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -207,9 +207,9 @@ const tabMenu = [
     if (!label) return false;
     const txt = label.trim().toUpperCase();
     return (
-      txt === "ASET" || 
-      txt === "LIABILITAS" || 
-      txt === "EKUITAS" || 
+      txt === "ASET" ||
+      txt === "LIABILITAS" ||
+      txt === "EKUITAS" ||
       txt === "PENDAPATAN DAN BEBAN OPERASIONAL" ||
       txt === "PENDAPATAN BUNGA" ||
       txt === "KAP DAN RASIO" ||
@@ -228,6 +228,26 @@ const tabMenu = [
 
   const isPengurusTab = activeTab === "000005";
 
+
+  const TrendBadge = ({ current, previous }) => {
+    if (current === null || current === undefined || previous === null || previous === undefined) return null;
+
+    const diff = current - previous;
+    if (diff === 0) return null;
+
+    const isUp = diff > 0;
+    // Logika warna: untuk aset/laba naik = hijau, tapi untuk NPL/BOPO naik = merah (buruk).
+    // Biar simple, kita pake standar: Hijau = naik, Merah = turun, kecuali lu mau custom tiap baris.
+    return (
+      <span className={`text-[10px] mr-1 ${isUp ? 'text-emerald-500' : 'text-rose-500'}`}>
+        {isUp ? '▲' : '▼'}
+      </span>
+    );
+  };
+
+
+
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
       {/* FIXED NAVBAR - selaras dengan Home.jsx */}
@@ -239,15 +259,15 @@ const tabMenu = [
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
-                Laporan <span className="text-blue-600">Internal</span>
+                Info BPR-<span className="text-blue-600">Laporan</span>
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Spreadsheet Monitoring Internal</p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100"
             >
               <ArrowLeft size={18} />
@@ -311,9 +331,8 @@ const tabMenu = [
                         key={bank.id_bank}
                         type="button"
                         onClick={() => handlePilihBank(bank)}
-                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${
-                          bank.id_bank === selectedBank ? 'bg-blue-50 font-bold text-blue-700' : 'text-slate-700'
-                        }`}
+                        className={`w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 transition-colors ${bank.id_bank === selectedBank ? 'bg-blue-50 font-bold text-blue-700' : 'text-slate-700'
+                          }`}
                       >
                         <span className="font-bold">{bank.id_bank}</span> - {bank.nama_bank}
                       </button>
@@ -325,7 +344,7 @@ const tabMenu = [
               )}
             </div>
           </div>
-          
+
           <div>
             <label className="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Penyaringan Keterangan / Pos Akuntansi</label>
             <div className="relative">
@@ -352,13 +371,12 @@ const tabMenu = [
                   key={tab.id}
                   onClick={() => {
                     setActiveTab(tab.id);
-                    setSearchTerm(""); 
+                    setSearchTerm("");
                   }}
-                  className={`px-5 py-2.5 text-xs font-bold rounded-t-lg border-t border-x transition-all whitespace-nowrap ${
-                    isSelected 
-                      ? 'bg-white text-blue-600 border-slate-200 shadow-sm z-10 font-black' 
-                      : 'bg-transparent text-slate-500 border-transparent hover:bg-blue-50/60 hover:text-blue-600'
-                  }`}
+                  className={`px-5 py-2.5 text-xs font-bold rounded-t-lg border-t border-x transition-all whitespace-nowrap ${isSelected
+                    ? 'bg-white text-blue-600 border-slate-200 shadow-sm z-10 font-black'
+                    : 'bg-transparent text-slate-500 border-transparent hover:bg-blue-50/60 hover:text-blue-600'
+                    }`}
                 >
                   {tab.title}
                 </button>
@@ -405,11 +423,10 @@ const tabMenu = [
                       return (
                         <tr
                           key={idx}
-                          className={`divide-x divide-slate-100 transition-colors ${
-                            isHeader
-                              ? 'bg-blue-50/60 font-bold text-slate-900 border-y border-slate-200'
-                              : 'hover:bg-slate-50 text-slate-600'
-                          }`}
+                          className={`divide-x divide-slate-100 transition-colors ${isHeader
+                            ? 'bg-blue-50/60 font-bold text-slate-900 border-y border-slate-200'
+                            : 'hover:bg-slate-50 text-slate-600'
+                            }`}
                         >
                           <td className="p-2.5 border-r border-slate-200">{row["Pemegang Saham"] || "-"}</td>
                           <td className="p-2.5 border-r border-slate-200">{row["Ultimate Shareholders"] || "-"}</td>
@@ -430,35 +447,47 @@ const tabMenu = [
                   filteredLabels.length > 0 ? (
                     filteredLabels.map((label, idx) => {
                       const isHeader = isHeaderRow(label);
-                      
+
                       return (
-                        <tr 
-                          key={idx} 
-                          className={`divide-x divide-slate-100 transition-colors ${
-                            isHeader 
-                              ? 'bg-blue-50/60 font-bold text-slate-900 border-y border-slate-200' 
-                              : 'hover:bg-slate-50 text-slate-600'
-                          }`}
+                        <tr
+                          key={idx}
+                          className={`divide-x divide-slate-100 transition-colors ${isHeader
+                            ? 'bg-blue-50/60 font-bold text-slate-900 border-y border-slate-200'
+                            : 'hover:bg-slate-50 text-slate-600'
+                            }`}
                         >
                           {/* Kolom Keterangan */}
                           <td className={`p-2.5 border-r border-slate-200 tracking-wide ${isHeader ? 'pl-3 font-extrabold text-blue-700' : 'pl-6'}`}>
                             {label}
                           </td>
-                          
+
                           {/* Kolom Periode Angka Dinamis */}
                           {bankData?.columns?.map((col, i) => {
-                            let val = "-";
+                            let val = null;
                             const keyTab = `val_${activeTab}`;
-                            
-                            if (col[keyTab] && col[keyTab][label]) {
-                              val = col[keyTab][label].nilai;
+
+                            // Cek keberadaan label di DALAM col[keyTab], bukan di col langsung
+                            if (col[keyTab] && Object.prototype.hasOwnProperty.call(col[keyTab], label)) {
+                              val = col[keyTab][label]?.nilai;
                             }
+
+                            // Ambil nilai periode sebelumnya (index i + 1 karena kolom ke-0 itu terbaru)
+                            const prevCol = bankData?.columns[i + 1];
+                            const prevVal = prevCol ? prevCol[keyTab]?.[label]?.nilai : null;
 
                             return (
                               <td key={i} className={`p-2.5 text-right font-mono ${isHeader ? 'font-bold text-slate-900' : 'text-slate-600'}`}>
-                                {typeof val === 'number' 
-                                  ? (val === 0 ? '-' : val.toLocaleString('id-ID')) 
-                                  : val}
+                                <div className="flex justify-end items-center">
+                                  {/* Tambahkan indikator tren */}
+                                  <TrendBadge current={val} previous={prevVal} />
+
+                                  {/* Logika warna merah kalau negatif */}
+                                  <span className={typeof val === 'number' && val < 0 ? 'text-rose-600 font-bold' : ''}>
+                                    {typeof val === 'number'
+                                      ? (val === 0 ? '-' : val.toLocaleString('id-ID'))
+                                      : (val ?? "-")}
+                                  </span>
+                                </div>
                               </td>
                             );
                           })}

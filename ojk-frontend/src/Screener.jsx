@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, Filter, Search, ArrowUpDown, LayoutList } from 'lucide-react';
+import { ArrowLeft, Filter, Search, ArrowUpDown, LayoutList, ShoppingBasket, CheckCircle2, X, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { getBucket, addToBucket, removeFromBucket, clearBucket } from './utils/bucketStore';
 
 const formatRupiah = (angka) => {
   if (angka === null || angka === undefined) return "-";
@@ -48,9 +49,25 @@ export default function Screener() {
   const [activeChips, setActiveChips] = useState([]); // array of QUICK_FILTERS keys
   const [sortConfig, setSortConfig] = useState({ key: 'aset', direction: 'desc' });
 
+  // --- STATE UNTUK KERANJANG (BUCKET) ---
+  // "Petik" bank yang menarik ke sini, kayak metik buah, biar bisa diolah/dibandingkan
+  // di satu tempat. Disimpan ke localStorage biar gak ilang pas refresh.
+  const [bucket, setBucket] = useState([]);
+  const [showBucket, setShowBucket] = useState(false);
+
+  useEffect(() => {
+    setBucket(getBucket());
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
-    api('/api/screener', {
+    
+    // 1. Ambil data keranjang saat ini untuk diambil list ID-nya
+    const currentBucket = getBucket();
+    const idsParam = currentBucket.map(item => item.id_bank).join(',');
+
+    // 2. Kirim list ID lewat query parameter '?ids='
+    api(`/api/screener?ids=${idsParam}`, {
       method: 'GET',
       headers: { 'Authorization': `Bearer ${token}` },
     })
@@ -79,6 +96,24 @@ export default function Screener() {
       }
       return { key, direction: 'desc' };
     });
+  };
+
+  const isPicked = (idBank) => bucket.some((b) => b.id_bank === idBank);
+
+  const toggleBucketRow = (row) => {
+    if (isPicked(row.id_bank)) {
+      setBucket(removeFromBucket(row.id_bank));
+    } else {
+      setBucket(addToBucket(row));
+    }
+  };
+
+  const handleRemoveFromBucket = (idBank) => {
+    setBucket(removeFromBucket(idBank));
+  };
+
+  const handleClearBucket = () => {
+    setBucket(clearBucket());
   };
 
   const hasilFilter = useMemo(() => {
@@ -117,7 +152,7 @@ export default function Screener() {
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
-                Screener <span className="text-blue-600">Nasional</span>
+                Info BPR-<span className="text-blue-600">MONITORING</span>
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 {loading ? 'Memuat...' : `${hasilFilter.length} dari ${data.length} bank ditampilkan`}
@@ -125,13 +160,29 @@ export default function Screener() {
             </div>
           </div>
 
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100"
-          >
-            <ArrowLeft size={18} />
-            <span className="hidden sm:inline">Kembali</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* TOMBOL BUKA KERANJANG */}
+            <button
+              onClick={() => setShowBucket(true)}
+              className="flex items-center gap-2 text-sm font-bold text-emerald-700 hover:text-emerald-800 transition-colors bg-emerald-50 hover:bg-emerald-100 px-4 py-2.5 rounded-xl border border-emerald-100"
+            >
+              <ShoppingBasket size={18} />
+              <span className="hidden sm:inline">wacthlist</span>
+              {bucket.length > 0 && (
+                <span className="bg-emerald-600 text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                  {bucket.length}
+                </span>
+              )}
+            </button>
+
+            <Link
+              to="/"
+              className="flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors bg-slate-100 hover:bg-blue-50 px-4 py-2.5 rounded-xl border border-transparent hover:border-blue-100"
+            >
+              <ArrowLeft size={18} />
+              <span className="hidden sm:inline">Kembali</span>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -197,6 +248,7 @@ export default function Screener() {
               <table className="w-full text-sm text-left whitespace-nowrap">
                 <thead className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                   <tr>
+                    <th className="p-3 w-10"></th>
                     {COLUMNS.map((col) => (
                       <th
                         key={col.key}
@@ -214,8 +266,23 @@ export default function Screener() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {hasilFilter.map((row) => (
+                  {hasilFilter.map((row) => {
+                    const picked = isPicked(row.id_bank);
+                    return (
                     <tr key={row.id_bank} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3">
+                        <button
+                          onClick={() => toggleBucketRow(row)}
+                          title={picked ? "Keluarkan dari wacthlist" : "Petik ke wacthlist"}
+                          className={`p-1.5 rounded-lg border transition-colors ${
+                            picked
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-600'
+                              : 'bg-white border-slate-200 text-slate-400 hover:text-emerald-600 hover:border-emerald-200'
+                          }`}
+                        >
+                          {picked ? <CheckCircle2 size={16} /> : <ShoppingBasket size={16} />}
+                        </button>
+                      </td>
                       <td className="p-3">
                         <Link to={`/laporan/${row.id_bank}`} className="font-bold text-slate-800 hover:text-blue-600">
                           {row.nama_bank}
@@ -240,13 +307,92 @@ export default function Screener() {
                         )}
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </main>
+
+      {/* ==========================================
+          TOMBOL MENGAMBANG + PANEL KERANJANG (drawer sendiri)
+         ========================================== */}
+      {!showBucket && bucket.length > 0 && (
+        <button
+          onClick={() => setShowBucket(true)}
+          className="fixed bottom-6 right-6 z-[90] bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg shadow-emerald-200 px-5 py-3.5 flex items-center gap-2 font-bold text-sm transition-all"
+        >
+          <ShoppingBasket size={18} />
+          Lihat wacthlist
+          <span className="bg-white text-emerald-700 text-xs font-black rounded-full w-5 h-5 flex items-center justify-center">
+            {bucket.length}
+          </span>
+        </button>
+      )}
+
+      {showBucket && (
+        <div className="fixed inset-0 z-[110] flex justify-end">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setShowBucket(false)} />
+          <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in fade-in duration-200">
+            <div className="p-5 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                  <ShoppingBasket size={18} className="text-emerald-600" /> wacthlist BPR
+                </h3>
+                <p className="text-xs text-slate-400 font-semibold mt-0.5">{bucket.length} bank dipilih</p>
+              </div>
+              <button onClick={() => setShowBucket(false)} className="text-slate-400 hover:text-slate-600">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
+              {bucket.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
+                  <ShoppingBasket size={40} className="mb-3 text-slate-300" />
+                  <p className="text-sm font-medium">wacthlist masih kosong</p>
+                  <p className="text-xs mt-1 max-w-[220px]">Klik ikon wacthlist di setiap baris tabel untuk memetik bank ke sini</p>
+                </div>
+              ) : (
+                bucket.map((item) => (
+                  <div key={item.id_bank} className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <Link to={`/laporan/${item.id_bank}`} className="font-bold text-sm text-slate-800 hover:text-blue-600 truncate block">
+                        {item.nama_bank}
+                      </Link>
+                      <div className="text-[10px] text-slate-400 font-mono">{item.id_bank} {item.periode_label ? `· ${item.periode_label}` : ''}</div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5 text-[11px] text-slate-500">
+                        <span>Aset: {formatRupiah(item.aset)}</span>
+                        <span>NPL: {formatPersen(item.npl)}</span>
+                        <span>KPMM: {formatPersen(item.kpmm)}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFromBucket(item.id_bank)}
+                      title="Keluarkan dari wachtlist"
+                      className="text-slate-300 hover:text-rose-500 shrink-0"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {bucket.length > 0 && (
+              <div className="p-4 border-t border-slate-200">
+                <button
+                  onClick={handleClearBucket}
+                  className="w-full text-xs font-bold text-rose-500 hover:text-rose-600 border border-rose-200 hover:bg-rose-50 rounded-xl py-2.5 transition-colors"
+                >
+                  Kosongkan wachtlist
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

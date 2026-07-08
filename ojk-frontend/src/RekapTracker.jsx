@@ -36,7 +36,7 @@ export default function RekapTracker() {
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-3">
             <Database className="text-blue-600" size={32} />
-            Data Ingestion Tracker
+            Data Tracker
           </h1>
           <p className="text-slate-500 mt-2">Pemantauan *real-time* volume dokumen OJK yang berhasil diekstraksi ke dalam *database*.</p>
           <Link 

@@ -603,23 +603,39 @@ const getAlertsForBank = async (req, res) => {
 // --- ENDPOINT: RINGKASAN ALERT SEMUA BANK (watchlist, periode terbaru masing-masing) ---
 const getAlertsSummary = async (req, res) => {
   try {
-    // Catatan performa: query ini narik SEMUA baris lalu ambil 1 terbaru per bank
-    // di memory (mirip pola getUniqueBank/scaraping yang sudah ada di file ini).
-    // Kalau datanya sudah jutaan baris, ini titik pertama yang perlu dioptimasi
-    // (misal pakai raw query DISTINCT ON, atau tabel snapshot terpisah).
-    const semua = await prisma.laporan_keuangan_bpr.findMany({
-      orderBy: [{ periode_tahun: 'desc' }, { periode_bulan: 'desc' }],
+    // ================================================================
+    // OPTIMASI: Jangan narik semua data! Database yang harus bekerja.
+    // Kita cari periode terbaru secara keseluruhan di database dulu.
+    // ================================================================
+    
+    // 1. Temukan periode (tahun & bulan) terbaru secara keseluruhan di database
+    const latestPeriod = await prisma.laporan_keuangan_bpr.aggregate({
+      _max: {
+        periode_tahun: true,
+        periode_bulan: true,
+      },
     });
 
-    const latestPerBank = new Map();
-    semua.forEach((row) => {
-      if (!latestPerBank.has(row.id_bank)) {
-        latestPerBank.set(row.id_bank, row);
-      }
+    const maxTahun = latestPeriod._max.periode_tahun;
+    const maxBulan = latestPeriod._max.periode_bulan;
+
+    // Jika tidak ada data sama sekali di database
+    if (!maxTahun || !maxBulan) {
+      return res.json({ success: true, data: [] });
+    }
+
+    // 2. Ambil HANYA baris yang sesuai dengan periode terbaru ini.
+    // Ini jauh lebih efisien daripada findMany() pada semua data.
+    // Database akan bekerja cepat karena memfilter berdasarkan index.
+    const dataTerbaru = await prisma.laporan_keuangan_bpr.findMany({
+      where: {
+        periode_tahun: maxTahun,
+        periode_bulan: maxBulan,
+      },
     });
 
     const hasil = [];
-    latestPerBank.forEach((row) => {
+    dataTerbaru.forEach((row) => {
       const alerts = evaluateAlerts(row.data_keuangan);
       if (alerts.length > 0) {
         hasil.push({
@@ -633,10 +649,9 @@ const getAlertsSummary = async (req, res) => {
       }
     });
 
-    hasil.sort(
-      (a, b) =>
-        severityRank[a.severity_tertinggi] - severityRank[b.severity_tertinggi] ||
-        b.jumlah_alert - a.jumlah_alert
+    hasil.sort((a, b) =>
+      severityRank[a.severity_tertinggi] - severityRank[b.severity_tertinggi] ||
+      b.jumlah_alert - a.jumlah_alert
     );
 
     res.json({ success: true, data: hasil });
@@ -645,7 +660,6 @@ const getAlertsSummary = async (req, res) => {
     res.status(500).json({ success: false, error: 'Gagal mengambil ringkasan alert' });
   }
 };
-
 
 // ================================================================
 // FITUR BARU 2: SUBMISSION / DATA COMPLETENESS TRACKER
@@ -741,9 +755,9 @@ const getSubmissionTracker = async (req, res) => {
 // Dipakai baik oleh getAiSummary (per-bank) maupun generateBroadcastRingkasan (semua bank).
 const callOpenRouter = async (prompt, { maxTokens = 1000, temperature = 0.6 } = {}) => {
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-  console.log("DEBUG cwd:", process.cwd());
-  console.log("DEBUG PWD env:", process.env.PWD);
-  console.log("DEBUG OPENROUTER_API_KEY loaded:", OPENROUTER_API_KEY ? `ADA (panjang: ${OPENROUTER_API_KEY.length})` : "TIDAK ADA / KOSONG");
+  // console.log("DEBUG cwd:", process.cwd());
+  // console.log("DEBUG PWD env:", process.env.PWD);
+  // console.log("DEBUG OPENROUTER_API_KEY loaded:", OPENROUTER_API_KEY ? `ADA (panjang: ${OPENROUTER_API_KEY.length})` : "TIDAK ADA / KOSONG");
   // Pakai model gratisan pilihan lu dari OpenRouter
   const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'poolside/laguna-xs-2.1:free';
   // Dipakai OpenRouter buat identifikasi app (opsional tapi disarankan mereka)
@@ -1006,7 +1020,24 @@ const triggerBroadcastManual = async (req, res) => {
 
 const getScreenerNasional = async (req, res) => {
   try {
+    // 1. Ambil data string ids dari query param (contoh: ?ids=BPR001,BPR002)
+    const { ids } = req.query;
+    
+    // Jika tidak ada ID yang dikirim atau keranjang kosong, langsung return array kosong
+    if (!ids || ids.trim() === "") {
+      return res.json({ success: true, data: [] });
+    }
+
+    // Pecah string koma menjadi array: ['BPR001', 'BPR002']
+    const idsArray = ids.split(',').map(id => id.trim());
+
+    // 2. Query ke Prisma dengan filter 'where' IN array ID keranjang
     const semua = await prisma.laporan_keuangan_bpr.findMany({
+      where: {
+        id_bank: {
+          in: idsArray
+        }
+      },
       orderBy: [{ periode_tahun: 'desc' }, { periode_bulan: 'desc' }],
     });
 
@@ -1021,7 +1052,6 @@ const getScreenerNasional = async (req, res) => {
     latestPerBank.forEach((row) => {
       const dk = row.data_keuangan || {};
       const alerts = evaluateAlerts(dk);
-
       const asetTerbaru = cariNilaiLabel(dk["000001"], (l) => l.toLowerCase() === 'total aset');
       const labaTerbaru = cariNilaiLabel(dk["000002"], (l) => l.toLowerCase().includes('jumlah laba (rugi) tahun berjalan'));
 
@@ -1052,10 +1082,10 @@ const getScreenerNasional = async (req, res) => {
       });
     });
 
-    // Default urutan: aset terbesar dulu (bisa disortir ulang di frontend)
+    // Default urutan: aset terbesar dulu
     hasil.sort((a, b) => (b.aset || 0) - (a.aset || 0));
-
     res.json({ success: true, data: hasil });
+
   } catch (error) {
     console.error("Gagal mengambil data screener:", error);
     res.status(500).json({ success: false, error: 'Gagal mengambil data screener nasional' });

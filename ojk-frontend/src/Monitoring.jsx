@@ -221,7 +221,7 @@ export default function Monitoring() {
             </div>
             <div>
               <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">
-                Monitoring <span className="text-blue-600">Internal</span>
+                Infor BPR-<span className="text-blue-600">Data N/A</span>
               </h1>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Alert & Kelengkapan Laporan</p>
             </div>
@@ -268,11 +268,11 @@ export default function Monitoring() {
                 <div className="h-10 w-px bg-slate-200" />
                 <div className="text-right">
                   <div className="text-2xl font-black text-emerald-600">{trackerData.total_sudah_lapor}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sudah Lapor</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sudah Upload</div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-black text-rose-500">{trackerData.total_belum_lapor}</div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Belum Lapor</div>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Belum Upload</div>
                 </div>
               </div>
             )}
@@ -315,7 +315,7 @@ export default function Monitoring() {
                         <td className="p-3 font-semibold text-slate-700">{bank.nama_bank}</td>
                         <td className="p-3 text-right">
                           <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 px-2.5 py-1 rounded-md">
-                            <XCircle size={12} /> Belum Lapor
+                            <XCircle size={12} /> Belum Upload
                           </span>
                         </td>
                       </tr>

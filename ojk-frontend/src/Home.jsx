@@ -15,14 +15,21 @@ import {
   RefreshCw,
   RocketIcon,
   AlarmPlus,
-  ScreenShare
+  ScreenShare,
+  ShoppingBasket,
+  CheckCircle2,
+  PaintBucket
 } from 'lucide-react';
 import {
-  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
+  Legend,
+  ComposedChart
 } from 'recharts';
 import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode'
 import { api } from '../api';
+import { useMemo } from 'react';
+import { addToBucket, removeFromBucket, isInBucket } from './utils/bucketStore';
 
 const formatRupiah = (angka) => {
   if (angka === null || angka === undefined) return "-";
@@ -34,6 +41,19 @@ const formatPersen = (angka) => {
   if (angka === null || angka === undefined) return "-";
   if (angka === 0) return "0%";
   return `${Number(angka).toFixed(2)}%`;
+};
+
+// TAMBAHAN: cek apakah suatu angka negatif (minus), dipakai buat kasih warna merah
+const isNegatif = (angka) => angka !== null && angka !== undefined && Number(angka) < 0;
+
+// Cari value rasio di dalam objek val_000003 (hasil mapValuesWithTrend di BE)
+// berdasarkan regex nama labelnya. Dipakai buat merakit item keranjang.
+const cariRasio = (obj, regex) => {
+  if (!obj) return null;
+  const key = Object.keys(obj).find((k) => regex.test(k));
+  if (!key) return null;
+  const v = obj[key]?.nilai;
+  return (v === undefined || v === null) ? null : Number(v);
 };
 
 const EmptyStateChart = ({ title }) => (
@@ -59,6 +79,9 @@ export default function Home() {
   const [aiSummary, setAiSummary] = useState(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiError, setAiError] = useState(null);
+
+  // --- STATE UNTUK KERANJANG (BUCKET) ---
+  const [inBucket, setInBucket] = useState(false);
 
   const navigate = useNavigate()
 
@@ -182,6 +205,43 @@ export default function Home() {
     }
   }, []);
 
+  // --- Cek status keranjang setiap kali bank yang dibuka berganti ---
+  useEffect(() => {
+    if (!selectedBankId) {
+      setInBucket(false);
+      return;
+    }
+    setInBucket(isInBucket(selectedBankId));
+  }, [selectedBankId]);
+
+  const handleToggleBucket = () => {
+    if (!laporan || !selectedBankId) return;
+
+    if (inBucket) {
+      removeFromBucket(selectedBankId);
+      setInBucket(false);
+      return;
+    }
+
+    const currentColumn = laporan.columns[0];
+    const item = {
+      id_bank: selectedBankId,
+      nama_bank: laporan.nama_bank,
+      periode_label: currentColumn ? `Q${currentColumn.triwulan} ${currentColumn.tahun}` : null,
+      aset: currentColumn?.val_000001?.["total aset"]?.nilai ?? null,
+      laba: currentColumn?.val_000002?.["jumlah laba (rugi) tahun berjalan"]?.nilai ?? null,
+      kpmm: cariRasio(currentColumn?.val_000003, /kpmm/i),
+      npl: cariRasio(currentColumn?.val_000003, /npl/i),
+      roa: cariRasio(currentColumn?.val_000003, /roa/i),
+      bopo: cariRasio(currentColumn?.val_000003, /bopo/i),
+      cash_ratio: cariRasio(currentColumn?.val_000003, /cash ratio/i),
+      ldr: cariRasio(currentColumn?.val_000003, /ldr/i),
+      jumlah_alert: aiSummary?.jumlah_alert ?? 0,
+    };
+    addToBucket(item);
+    setInBucket(true);
+  };
+
   const handleCloseTutorial = () => {
     localStorage.setItem('has_seen_v2_features', 'true');
     setShowTutorial(false);
@@ -220,18 +280,77 @@ export default function Home() {
     return (
       <div className={`flex items-center justify-end gap-1 mt-1 text-[11px] font-bold ${isNaik ? 'text-emerald-500' : 'text-rose-500'}`}>
         <span>{isNaik ? '↑' : '↓'}</span>
-        <span>{trenData.tren}%</span>
-        <span className="text-slate-400 font-normal ml-1">vs Q Lalu</span>
+        {/* <span>{trenData.tren}%</span> */}
+        {/* <span className="text-slate-400 font-normal ml-1">vs Q Lalu</span> */}
       </div>
     );
   };
 
-  // --- MERAKIT DATA UNTUK GRAFIK ---
+  // --- TAMBAHAN: cek apakah 1 baris (label) nilainya 0 di SEMUA kuartal ---
+  // Kalau semua kuartal 0/null/undefined -> baris disembunyikan.
+  // Kalau minimal 1 kuartal ada angkanya -> baris tetap ditampilkan (termasuk kolom lain yang 0).
+  const isRowAllZero = (label, valKey) => {
+    if (!laporan || !laporan.columns) return true;
+    return laporan.columns.every((col) => {
+      const v = col[valKey]?.[label]?.nilai;
+      return v === undefined || v === null || Number(v) === 0;
+    });
+  };
+
   const chartData = laporan ? [...laporan.columns].reverse().map(col => ({
     name: `Q${col.triwulan} '${col.tahun.toString().substr(2)}`,
     aset: col.val_000001["total aset"]?.nilai || 0,
     laba: col.val_000002["jumlah laba (rugi) tahun berjalan"]?.nilai || 0
   })) : [];
+
+  // 1. Array warna biar tiap tahun beda warna garisnya (bisa lu custom)
+  const chartColors = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
+  {/* Definisikan warna terpisah: chartColors untuk garis historis, 
+    warna emerald khusus untuk bar 2026 supaya tidak pernah bentrok */}
+  const warna2026 = '#f97316 '; // emerald, sengaja tidak dipakai di chartColors di atas
+  // 2. Fungsi sakti buat ngerubah format data biar Recharts paham
+  // 2. Fungsi sakti buat ngerubah format data (Versi Anti-Gagal)
+  // 2. Fungsi sakti buat ngerubah format data (Versi Fix Kutip)
+  const { multiYearData, availableYears } = useMemo(() => {
+    const grouped = {
+      'Q1': { name: 'Q1' },
+      'Q2': { name: 'Q2' },
+      'Q3': { name: 'Q3' },
+      'Q4': { name: 'Q4' }
+    };
+    const yearsSet = new Set();
+
+    if (chartData && chartData.length > 0) {
+      chartData.forEach(item => {
+        // PEMBERSIH SUPER: Buang tanda kutip (') dan strip (-)
+        const cleanName = (item.name || "").replace(/['\-]/g, ' ').replace(/\s+/g, ' ').trim();
+        const parts = cleanName.split(' ');
+
+        const kuartal = parts[0]; // Dapat "Q1"
+        let tahun = parts[1]; // Sekarang dijamin murni "25" atau "26"
+
+        if (tahun) {
+          // Karena kutip udah hilang, tahun.length pasti 2, jadi otomatis ditambah "20"
+          if (tahun.length === 2) {
+            tahun = `20${tahun}`;
+          }
+
+          if (grouped[kuartal]) {
+            yearsSet.add(tahun);
+            grouped[kuartal][tahun] = item.laba;
+          }
+        }
+      });
+    }
+
+    return {
+      multiYearData: Object.values(grouped),
+      availableYears: Array.from(yearsSet).sort()
+    };
+  }, [chartData]);
+
+  // --- MERAKIT DATA UNTUK GRAFIK ---
+
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 flex flex-col">
@@ -262,22 +381,22 @@ export default function Home() {
 
             <div className="space-y-3 mb-5">
               <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <div className="bg-blue-600 text-white p-2 rounded-lg h-fit">
-                  <ReceiptPoundSterling size={16} />
+                <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
+                  <Monitor size={16} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800">1. Boardcast</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">Laporan semua bank yang terkena alert tanpa harus membuka satu satu</p>
+                  <h4 className="text-xs font-bold text-slate-800">1. Screener</h4>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Menampilkan isi yang ada didalam wacthlist sesuai bank yang dipilih user.</p>
                 </div>
               </div>
 
               <div className="flex gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <div className="bg-indigo-600 text-white p-2 rounded-lg h-fit">
-                  <Monitor size={16} />
+                  <PaintBucket size={16} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-800">2. Screener</h4>
-                  <p className="text-slate-500 text-[11px] mt-0.5">Menampilkan semua bank yang NPL di atas lebih dari 5%.</p>
+                  <h4 className="text-xs font-bold text-slate-800">2. bucket</h4>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Pada Financial Executive Summary sekarang bisa menambahkan BPR ke belanja agar mode screener berjalan.</p>
                 </div>
               </div>
 
@@ -320,11 +439,8 @@ export default function Home() {
               </div>
               <div>
                 <h1 className="text-xl font-extrabold text-slate-800 tracking-tight leading-tight">
-                  <Link to={"/"}>Bank<span className="text-blue-600">BPR</span></Link>
+                  <Link to={"/"}>Info <span className="text-blue-600">BPR</span></Link>
                 </h1>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                  Unified Executive Panel
-                </p>
               </div>
             </div>
 
@@ -366,15 +482,11 @@ export default function Home() {
                       {/* <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span> */}
                     </Link>
                     <Link to="/monitor" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                      <span className="flex items-center gap-3"><Monitor size={16} /> Monitoring</span>
+                      <span className="flex items-center gap-3"><Monitor size={16} /> Data N/A</span>
                       {/* <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span> */}
                     </Link>
-                    <Link to="/broadcast" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                      <span className="flex items-center gap-3"><AlarmPlus size={16} /> BroadCast</span>
-                      <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
-                    </Link>
                     <Link to="/screener" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-between px-4 py-3 text-sm font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                      <span className="flex items-center gap-3"><ScreenShare size={16} /> Screener</span>
+                      <span className="flex items-center gap-3"><ScreenShare size={16} /> Monitoring</span>
                       <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
                     </Link>
                   </div>
@@ -429,9 +541,23 @@ export default function Home() {
           <div className="flex flex-col gap-6 w-full h-full animate-in fade-in duration-300">
 
             {/* TITLE BLOCK */}
-            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
-              <h2 className="text-2xl font-bold text-slate-800">{laporan.nama_bank}</h2>
-              <p className="text-slate-500 text-sm">Arsip Historis Komparatif Makro & Mikro</p>
+            <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between gap-4 flex-wrap">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">{laporan.nama_bank}</h2>
+                <p className="text-slate-500 text-sm">Arsip Historis Komparatif Makro & Mikro</p>
+              </div>
+              {/* TAMBAHAN: tombol keranjang, biar bank ini bisa langsung dipetik ke Screener */}
+              <button
+                onClick={handleToggleBucket}
+                className={`flex items-center gap-2 text-xs font-bold px-4 py-2.5 rounded-xl border transition-colors shrink-0 ${inBucket
+                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600'
+                  }`}
+              >
+                {inBucket ? <CheckCircle2 size={16} /> : <ShoppingBasket size={16} />}
+                {inBucket ? 'Di Dalam wacthlist' : 'Tambah ke wathclist'}
+                <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-md font-extrabold animate-pulse">BARU</span>
+              </button>
             </div>
 
             {/* ==========================================
@@ -508,20 +634,50 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-sm">
-                <h3 className="font-bold text-slate-700 mb-6 flex items-center gap-2">
-                  <TrendingUp size={20} className="text-emerald-500" /> Kinerja Laba Bersih
+              {/* KINERJA LABA BERSIH - SPLIT CONTAINER (HISTORIS VS TAHUN BERJALAN) */}
+              <div className="bg-white p-6 border border-slate-200 rounded-2xl shadow-sm flex flex-col">
+                <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                  <TrendingUp size={20} className="text-emerald-500" /> Kinerja Laba Bersih YoY
                 </h3>
-                <div className="h-72">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                      <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
-                      <YAxis tickFormatter={(val) => `${(val / 1000000000).toFixed(1)}M`} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                      <RechartsTooltip formatter={(val) => formatRupiah(val)} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                      <Line type="monotone" dataKey="laba" name="Laba Berjalan" stroke="#10b981" strokeWidth={4} dot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 8 }} />
-                    </LineChart>
-                  </ResponsiveContainer>
+
+                {/* Inner Grid: Membagi area chart jadi 2 bagian (Kiri Historis, Kanan 2026) */}
+                <div className="border border-slate-100 rounded-xl p-3 bg-slate-50/50 flex flex-col h-72">
+                  <h4 className="text-[11px] font-bold text-slate-500 mb-2 text-center uppercase tracking-widest flex justify-center items-center gap-2">
+                    Tren Historis vs Tahun Berjalan
+                    <span className="inline-flex items-center gap-1 text-emerald-600 normal-case font-semibold">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 2026
+                    </span>
+                  </h4>
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={multiYearData} margin={{ top: 5, right: 10, left: -15, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748b', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                        <YAxis tickFormatter={(val) => `${(val / 1000000000).toFixed(0)}M`} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                        <RechartsTooltip
+                          formatter={(value, name) => [formatRupiah(value), `Tahun ${name}`]}
+                          cursor={{ fill: '#d1fae5', opacity: 0.4 }}
+                          contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        />
+                        <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: '600', color: '#64748b' }} />
+
+                        {/* Tahun historis pakai palet chartColors (biru/ungu/oranye/dst) */}
+                        {availableYears.filter(y => y !== '2026').map((tahun, index) => (
+                          <Line
+                            key={tahun} type="monotone" dataKey={tahun} name={tahun}
+                            stroke={chartColors[index % chartColors.length]} strokeWidth={2.5}
+                            dot={{ r: 4, fill: chartColors[index % chartColors.length], stroke: '#fff' }}
+                            activeDot={{ r: 6 }}
+                          />
+                        ))}
+
+                        {/* 2026 pakai warna emerald khusus, tidak pernah dipakai di garis historis */}
+                        {availableYears.includes('2026') && (
+                          <Bar dataKey="2026" name="2026" fill={warna2026} radius={[6, 6, 0, 0]} barSize={28} />
+                        )}
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </div>
@@ -530,11 +686,11 @@ export default function Home() {
                 AREA 2 (TENGAH): MATRIX SPREADSHEET TABLE
                ========================================== */}
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-              <div className="overflow-x-auto overflow-y-auto custom-scrollbar">
+              <div className="overflow-x-auto overflow-y-auto custom-scrollbar max-h-[600px]">
                 <table className="w-full text-sm text-left border-collapse">
                   <thead className="bg-slate-100 border-b border-slate-200 sticky top-0 z-20">
                     <tr>
-                      <th className="p-4 sticky left-0 bg-slate-100 z-30 w-72 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] font-bold text-slate-700">
+                      <th className="p-4 sticky left-0 top-0 bg-slate-100 z-30 w-72 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] font-bold text-slate-700">
                         POS / KETERANGAN
                       </th>
                       {laporan.columns.map((col, i) => (
@@ -554,22 +710,27 @@ export default function Home() {
                         📊 000001 - POSISI KEUANGAN
                       </td>
                     </tr>
-                    {laporan.labels_000001.map((label, idx) => (
-                      <tr key={`pos-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                          {label}
-                        </td>
-                        {laporan.columns.map((col, i) => {
-                          const cellData = col.val_000001[label];
-                          return (
-                            <td key={`val1-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
-                              <div className="text-slate-800 font-mono font-semibold">{formatRupiah(cellData?.nilai)}</div>
-                              <TrendBadge trenData={cellData} />
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
+                    {laporan.labels_000001
+                      .filter((label) => !isRowAllZero(label, 'val_000001'))
+                      .map((label, idx) => (
+                        <tr key={`pos-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                            {label}
+                          </td>
+                          {laporan.columns.map((col, i) => {
+                            const cellData = col.val_000001[label];
+                            return (
+                              <td key={`val1-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
+                                {/* Tweak Flexbox di sini */}
+                                <div className={`flex items-center justify-end gap-2 font-mono font-semibold ${isNegatif(cellData?.nilai) ? 'text-rose-600' : 'text-slate-800'}`}>
+                                  <TrendBadge trenData={cellData} />
+                                  <span>{formatRupiah(cellData?.nilai)}</span>
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
 
                     {/* 000002 - LABA RUGI */}
                     <tr className="bg-emerald-50/60 border-t-2 border-slate-200">
@@ -577,22 +738,27 @@ export default function Home() {
                         📈 000002 - LABA RUGI
                       </td>
                     </tr>
-                    {laporan.labels_000002.map((label, idx) => (
-                      <tr key={`lr-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                          {label}
-                        </td>
-                        {laporan.columns.map((col, i) => {
-                          const cellData = col.val_000002[label];
-                          return (
-                            <td key={`val2-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
-                              <div className="text-slate-800 font-mono font-semibold">{formatRupiah(cellData?.nilai)}</div>
-                              <TrendBadge trenData={cellData} />
-                            </td>
-                          )
-                        })}
-                      </tr>
-                    ))}
+                    {laporan.labels_000002
+                      .filter((label) => !isRowAllZero(label, 'val_000002'))
+                      .map((label, idx) => (
+                        <tr key={`lr-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                            {label}
+                          </td>
+                          {laporan.columns.map((col, i) => {
+                            const cellData = col.val_000002[label];
+                            return (
+                              <td key={`val2-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
+                                {/* Tweak Flexbox di sini */}
+                                <div className={`flex items-center justify-end gap-2 font-mono font-semibold ${isNegatif(cellData?.nilai) ? 'text-rose-600' : 'text-slate-800'}`}>
+                                  <TrendBadge trenData={cellData} />
+                                  <span>{formatRupiah(cellData?.nilai)}</span>
+                                </div>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
 
                     {/* 000003 - RASIO KEUANGAN (%) */}
                     {laporan.labels_000003_rasio && laporan.labels_000003_rasio.length > 0 && (
@@ -602,23 +768,27 @@ export default function Home() {
                             ⚡ 000003 - RASIO KEUANGAN (%)
                           </td>
                         </tr>
-                        {laporan.labels_000003_rasio.map((label, idx) => (
-                          <tr key={`rasio-${idx}`} className="hover:bg-slate-50/80 transition-colors">
-                            <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
-                              {label}
-                            </td>
-                            {laporan.columns.map((col, i) => {
-                              const cellData = col.val_000003?.[label];
-
-                              return (
-                                <td key={`val3rasio-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
-                                  <div className="text-slate-800 font-mono font-semibold">{formatPersen(cellData?.nilai)}</div>
-                                  <TrendBadge trenData={cellData} />
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
+                        {laporan.labels_000003_rasio
+                          .filter((label) => !isRowAllZero(label, 'val_000003'))
+                          .map((label, idx) => (
+                            <tr key={`rasio-${idx}`} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="p-3 sticky left-0 bg-white border-r border-slate-200 z-10 font-medium text-slate-700 capitalize shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                                {label}
+                              </td>
+                              {laporan.columns.map((col, i) => {
+                                const cellData = col.val_000003?.[label];
+                                return (
+                                  <td key={`val3rasio-${i}`} className="p-3 text-right border-r border-slate-100 align-top">
+                                    {/* Tweak Flexbox di sini */}
+                                    <div className={`flex items-center justify-end gap-2 font-mono font-semibold ${isNegatif(cellData?.nilai) ? 'text-rose-600' : 'text-slate-800'}`}>
+                                      <TrendBadge trenData={cellData} />
+                                      <span>{formatPersen(cellData?.nilai)}</span>
+                                    </div>
+                                  </td>
+                                )
+                              })}
+                            </tr>
+                          ))}
                       </>
                     )}
 
@@ -669,14 +839,14 @@ export default function Home() {
                               <td className="p-4 font-medium text-slate-700 border-r border-slate-100">{item.label_asli}</td>
 
                               {/* RENDER 6 ANGKA DARI DATABASE */}
-                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_L)}</td>
-                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_DPK)}</td>
-                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_KL)}</td>
-                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_D)}</td>
-                              <td className="p-3 text-right font-mono text-slate-600 border-r border-slate-100">{formatRupiah(item.kolom_M)}</td>
+                              <td className={`p-3 text-right font-mono border-r border-slate-100 ${isNegatif(item.kolom_L) ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{formatRupiah(item.kolom_L)}</td>
+                              <td className={`p-3 text-right font-mono border-r border-slate-100 ${isNegatif(item.kolom_DPK) ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{formatRupiah(item.kolom_DPK)}</td>
+                              <td className={`p-3 text-right font-mono border-r border-slate-100 ${isNegatif(item.kolom_KL) ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{formatRupiah(item.kolom_KL)}</td>
+                              <td className={`p-3 text-right font-mono border-r border-slate-100 ${isNegatif(item.kolom_D) ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{formatRupiah(item.kolom_D)}</td>
+                              <td className={`p-3 text-right font-mono border-r border-slate-100 ${isNegatif(item.kolom_M) ? 'text-rose-600 font-semibold' : 'text-slate-600'}`}>{formatRupiah(item.kolom_M)}</td>
 
                               {/* KOLOM JUMLAH BERWARNA LEBIH TEGAS */}
-                              <td className="p-3 text-right font-mono font-bold text-slate-800 bg-amber-50/20">
+                              <td className={`p-3 text-right font-mono font-bold bg-amber-50/20 ${isNegatif(item.nilai) ? 'text-rose-600' : 'text-slate-800'}`}>
                                 {formatRupiah(item.nilai)}
                               </td>
 
