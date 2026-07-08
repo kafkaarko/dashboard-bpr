@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, Filter, Search, ArrowUpDown, LayoutList, ShoppingBasket, CheckCircle2, X, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../api';
-import { getBucket, addToBucket, removeFromBucket, clearBucket } from './utils/BucketStore';
+import { getBucket, addToBucket, removeFromBucket, clearBucket } from './utils/BucketStore.js';
 
 const formatRupiah = (angka) => {
   if (angka === null || angka === undefined) return "-";
