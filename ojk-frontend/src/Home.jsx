@@ -29,7 +29,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode'
 import { api } from '../api';
 import { useMemo } from 'react';
-import { addToBucket, removeFromBucket, isInBucket } from './utils/BucketStore.js';
+import { addToBucket, isInBucket, removeFromBucket } from './utils/BucketStore';
+// import { addToBucket, removeFromBucket, isInBucket } from 
 
 const formatRupiah = (angka) => {
   if (angka === null || angka === undefined) return "-";
