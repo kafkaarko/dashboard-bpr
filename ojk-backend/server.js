@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api',authRoute)
 app.use('/api',bprRoute)
 // --- KODE BARU (VERCEL READY) ---
-const frontendBuildPath = path.join(__dirname, '../ojk-frontend/dist');
+const frontendBuildPath = path.join(__dirname, '../info-bpr/dist');
 app.use(express.static(frontendBuildPath));
 
 app.get('/*splat', (req, res, next) => {
