@@ -6,6 +6,7 @@ const app = express();
 const dotenv = require('dotenv')
 const  bprRoute  = require('./routes/bpr.routes');
 const  authRoute  = require('./routes/auth.route');
+require('./lib/Schduler')
 
 dotenv.config()
 app.use(cors({

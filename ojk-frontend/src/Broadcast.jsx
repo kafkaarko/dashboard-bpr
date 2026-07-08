@@ -108,7 +108,7 @@ export default function Broadcast() {
 
       <main className="flex-1 w-full max-w-3xl mx-auto p-6 flex flex-col gap-4">
         <p className="text-xs text-slate-500 -mt-1 mb-2">
-          Ringkasan otomatis dibuat AI tiap hari jam 09:00 WIB berdasarkan bank yang menembus ambang batas peringatan.
+          Ringkasan otomatis dibuat AI tiap hari jam 10:00 WIB berdasarkan bank yang menembus ambang batas peringatan.
           Tombol "Generate Sekarang" hanya untuk testing / kebutuhan mendadak di luar jadwal.
         </p>
 

@@ -8,10 +8,10 @@
 const cron = require('node-cron');
 const { generateBroadcastRingkasan } = require('../controller/bpr.controller');
 
-// Jadwal: tiap hari jam 09:00 waktu Jakarta.
+// Jadwal: tiap hari jam 10:00 waktu Jakarta.
 // Format cron: menit jam tanggal bulan hari-dalam-minggu
 cron.schedule(
-  '0 9 * * *',
+  '1 0 * * *',
   async () => {
     console.log('[CRON] Membuat broadcast ringkasan harian...');
     try {
@@ -28,4 +28,4 @@ cron.schedule(
   }
 );
 
-console.log('[CRON] Scheduler broadcast ringkasan harian aktif (09:00 WIB).');
+console.log('[CRON] Scheduler broadcast ringkasan harian aktif (10:00 WIB).');
