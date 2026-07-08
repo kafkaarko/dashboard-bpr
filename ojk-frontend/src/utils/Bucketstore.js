@@ -1,52 +1,54 @@
-// ================================================================
-// UTIL: KERANJANG (BUCKET) BPR
-// ================================================================
-// Dipakai di Screener.jsx (buat "petik" bank satu-satu ke keranjang)
-// dan Home.jsx (buat nambahin bank yang lagi dibuka ke keranjang).
-// Data disimpan di localStorage biar gak hilang pas user refresh.
-// ================================================================
+// src/utils/bucketStore.js
 
-const BUCKET_KEY = 'bpr_bucket';
+const STORAGE_KEY = 'bpr_bucket';
 
+// Ambil seluruh isi keranjang dari localStorage
 export const getBucket = () => {
   try {
-    const raw = localStorage.getItem(BUCKET_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch (err) {
-    console.error('Gagal membaca keranjang:', err);
+    console.error('Gagal membaca bucket:', err);
     return [];
   }
 };
 
-const saveBucket = (items) => {
+// Simpan seluruh array bucket ke localStorage
+const saveBucket = (bucket) => {
   try {
-    localStorage.setItem(BUCKET_KEY, JSON.stringify(items));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(bucket));
   } catch (err) {
-    console.error('Gagal menyimpan keranjang:', err);
+    console.error('Gagal menyimpan bucket:', err);
   }
 };
 
-export const isInBucket = (idBank) => getBucket().some((b) => b.id_bank === idBank);
-
-// item minimal butuh field id_bank. Field lain (nama_bank, aset, laba, kpmm,
-// npl, roa, bopo, cash_ratio, ldr, jumlah_alert, periode_label) opsional,
-// dipakai buat ditampilkan ringkas di panel keranjang.
+// Tambah 1 item bank ke keranjang (kalau id_bank sudah ada, replace/update datanya)
 export const addToBucket = (item) => {
+  if (!item || !item.id_bank) return;
   const bucket = getBucket();
-  if (!item || !item.id_bank) return bucket;
-  if (bucket.some((b) => b.id_bank === item.id_bank)) return bucket; // sudah ada, gak usah dobel
-  const updated = [...bucket, { ...item, ditambahkan_pada: new Date().toISOString() }];
-  saveBucket(updated);
-  return updated;
+  const idx = bucket.findIndex((b) => b.id_bank === item.id_bank);
+
+  if (idx >= 0) {
+    bucket[idx] = item; // update kalau sudah ada
+  } else {
+    bucket.push(item); // tambah baru
+  }
+  saveBucket(bucket);
 };
 
-export const removeFromBucket = (idBank) => {
-  const updated = getBucket().filter((b) => b.id_bank !== idBank);
-  saveBucket(updated);
-  return updated;
+// Hapus 1 bank dari keranjang berdasarkan id_bank
+export const removeFromBucket = (id_bank) => {
+  const bucket = getBucket().filter((b) => b.id_bank !== id_bank);
+  saveBucket(bucket);
 };
 
+// Cek apakah suatu id_bank sudah ada di dalam keranjang
+export const isInBucket = (id_bank) => {
+  if (!id_bank) return false;
+  return getBucket().some((b) => b.id_bank === id_bank);
+};
+
+// Kosongkan seluruh isi keranjang
 export const clearBucket = () => {
   saveBucket([]);
-  return [];
 };
