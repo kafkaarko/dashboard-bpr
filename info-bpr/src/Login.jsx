@@ -55,11 +55,8 @@ export default function Login() {
             <Building2 className="text-white" size={40} />
           </div>
           <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            Bank<span className="text-blue-200">BPR</span>
+            Info <span className="text-blue-200">BPR</span>
           </h1>
-          <p className="text-blue-100 text-xs font-semibold uppercase tracking-widest mt-2">
-            Unified Executive Panel
-          </p>
         </div>
 
         {/* FORM SECTION */}
@@ -128,9 +125,6 @@ export default function Login() {
 
         {/* FOOTER */}
         <div className="bg-slate-50 p-4 text-center border-t border-slate-100">
-          <p className="text-xs font-semibold text-slate-400">
-            Sistem Internal PT Dana Mandiri Bogor
-          </p>
         </div>
 
       </div>
