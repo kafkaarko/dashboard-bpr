@@ -739,7 +739,7 @@ const getSubmissionTracker = async (req, res) => {
 
 // Helper generik buat manggil OpenRouter chat completions.
 // Dipakai baik oleh getAiSummary (per-bank) maupun generateBroadcastRingkasan (semua bank).
-const callOpenRouter = async (prompt, { maxTokens = 500, temperature = 0.6 } = {}) => {
+const callOpenRouter = async (prompt, { maxTokens = 1000, temperature = 0.6 } = {}) => {
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
   console.log("DEBUG cwd:", process.cwd());
   console.log("DEBUG PWD env:", process.env.PWD);
