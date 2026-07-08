@@ -946,7 +946,7 @@ const generateBroadcastRingkasan = async () => {
     // Batasi ke 30 bank paling kritis biar prompt gak kepanjangan / boros token
     const prompt = buildBroadcastPrompt(bankBermasalah.slice(0, 30));
     try {
-      konten = await callOpenRouter(prompt, { maxTokens: 1000, temperature: 0.5 });
+      konten = await callOpenRouter(prompt, { maxTokens: 2000, temperature: 0.5 });
       if (!konten) konten = "Ringkasan tidak tersedia (respons AI kosong).";
     } catch (err) {
       console.error("Gagal membuat broadcast via OpenRouter:", err.message);
